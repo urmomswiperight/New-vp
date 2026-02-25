@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                        String         @id @default(uuid())
+  email                     String?        @unique
+  lemon_squeezy_customer_id String?        @unique
+  usage_count               Int            @default(0)
+  leads                     Lead[]
+  campaigns                 Campaign[]
+  subscriptions             Subscription[]
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  firstName String?
+  lastName  String?
+  company   String?
+  linkedinUrl String?
+  status    String   @default("New")
+  region    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Campaign {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  type      String   @default("Email") // e.g., Email, LinkedIn
+  status    String   @default("Paused") // e.g., Paused, Active, Completed
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+enum SubscriptionStatus {
+  active
+  trialing
+  past_due
+  canceled
+  unpaid
+}
+
+model Subscription {
+  id                        String             @id @default(uuid())
+  userId                    String             @unique
+  user                      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lemon_squeezy_id          String             @unique
+  variant_id                String
+  status                    SubscriptionStatus
+  current_period_end        DateTime
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
