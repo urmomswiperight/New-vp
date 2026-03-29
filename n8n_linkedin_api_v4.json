@@ -1,316 +1,126 @@
 {
-  "name": "LinkedIn Outreach - Private API V4 (Self-Hosted)",
+  "name": "LinkedIn Outreach API v4",
   "nodes": [
     {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "triggerAtHour": 9
-            }
-          ]
-        }
-      },
-      "id": "trigger-9am",
-      "name": "Daily Start (9 AM)",
-      "type": "n8n-nodes-base.scheduleTrigger",
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "When clicking \"Execute Workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -200,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "getAll",
-        "tableName": "Lead",
-        "limit": 25,
-        "filters": {
-          "conditions": [
-            {
-              "key": "status",
-              "value": "Drafted"
-            },
-            {
-              "key": "linkedinUrl",
-              "operator": "notEmpty"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "fetch-leads",
-      "name": "Fetch 25 Drafted Leads",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        50,
-        400
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "Supabase-Credential-ID",
-          "name": "Supabase"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "batchSize": 1,
-        "options": {}
-      },
-      "id": "split-batches",
-      "name": "Split in Batches",
-      "type": "n8n-nodes-base.splitInBatches",
-      "typeVersion": 1,
-      "position": [
-        300,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "amount": "={{ 3 + Math.floor(Math.random() * 5) }}",
-        "unit": "minutes"
-      },
-      "id": "jitter-wait",
-      "name": "Jitter Wait (3-8m)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
-      "position": [
-        500,
-        400
+        100,
+        100
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:3000/api/linkedin/outreach",
+        "url": "={{ $vars[\"BASE_URL\"] || 'http://localhost:3000' }}/api/linkedin/outreach",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Outreach-Secret",
-              "value": "YOUR_OUTREACH_SECRET_HERE"
+              "value": "={{ $vars[\"OUTREACH_SECRET\"] || 'your-secret-here' }}"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"profileUrl\": \"{{ $json.linkedinUrl }}\",\n  \"message\": \"{{ $json.metadata?.draft || 'Hi ' + ($json.firstName || '') + ', let\\'s connect!' }}\",\n  \"dailyLimit\": 25\n}",
+        "jsonBody": "={\n  \"profileUrl\": \"https://www.linkedin.com/in/williamhgates/\",\n  \"message\": \"Hello Bill, testing my new LinkedIn API!\"\n}",
         "options": {}
       },
-      "id": "private-api-sender",
-      "name": "Private Next.js API Send",
+      "id": "http-request",
+      "name": "HTTP Request",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        750,
-        400
-      ],
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ !!$json.error || $json.success === false }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "id": "check-error",
-      "name": "Check for Error",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        1000,
-        400
+        350,
+        100
       ]
     },
     {
       "parameters": {
-        "tableName": "Lead",
-        "updateKey": "id",
-        "dataToUpdate": {
-          "values": [
-            {
-              "column": "status",
-              "value": "Contacted"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "update-success",
-      "name": "Mark Contacted",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        1250,
-        300
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "Supabase-Credential-ID",
-          "name": "Supabase"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "tableName": "Lead",
-        "updateKey": "id",
-        "dataToUpdate": {
-          "values": [
-            {
-              "column": "status",
-              "value": "Error"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "update-error",
-      "name": "Mark Error",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        1250,
-        500
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "Supabase-Credential-ID",
-          "name": "Supabase"
-        }
-      }
-    },
-    {
-      "parameters": {
         "conditions": {
           "boolean": [
             {
-              "value1": "={{ $node[\"Split in Batches\"].context[\"noItemsLeft\"] }}",
+              "value1": "={{ $json.success }}",
               "value2": true
             }
           ]
         }
       },
-      "id": "loop-complete",
-      "name": "Loop Done?",
+      "id": "check-success",
+      "name": "Check Success",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        1550,
-        400
+        600,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Outreach Successful\nAPI returned success: true"
+      },
+      "id": "sticky-note-success",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        850,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Outreach Failed\nCheck API logs for details"
+      },
+      "id": "sticky-note-failure",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
       ]
     }
   ],
   "connections": {
-    "Daily Start (9 AM)": {
+    "When clicking \"Execute Workflow\"": {
       "main": [
         [
           {
-            "node": "Fetch 25 Drafted Leads",
+            "node": "HTTP Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch 25 Drafted Leads": {
+    "HTTP Request": {
       "main": [
         [
           {
-            "node": "Split in Batches",
+            "node": "Check Success",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Split in Batches": {
+    "Check Success": {
       "main": [
         [
           {
-            "node": "Jitter Wait (3-8m)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Jitter Wait (3-8m)": {
-      "main": [
-        [
-          {
-            "node": "Private Next.js API Send",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Private Next.js API Send": {
-      "main": [
-        [
-          {
-            "node": "Check for Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check for Error": {
-      "main": [
-        [
-          {
-            "node": "Mark Error",
+            "node": "Sticky Note",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Mark Contacted",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Mark Contacted": {
-      "main": [
-        [
-          {
-            "node": "Loop Done?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mark Error": {
-      "main": [
-        [
-          {
-            "node": "Loop Done?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop Done?": {
-      "main": [
-        [],
-        [
-          {
-            "node": "Split in Batches",
+            "node": "Sticky Note1",
             "type": "main",
             "index": 0
           }
@@ -322,5 +132,5 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "hash": "linkedin-api-v4"
+  "hash": "linkedin-v4-api"
 }
