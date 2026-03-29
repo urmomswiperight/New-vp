@@ -1,0 +1,5 @@
+2026/03/22-20:12:01.249 55a4 Creating DB D:\N8N workflows\.playwright-sessions\mailo-signup-5\Default\Local Storage\leveldb since it was missing.
+2026/03/22-20:12:02.986 55a4 Reusing MANIFEST D:\N8N workflows\.playwright-sessions\mailo-signup-5\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/22-21:05:44.798 47e0 Level-0 table #5: started
+2026/03/22-21:05:45.121 47e0 Level-0 table #5: 40051 bytes OK
+2026/03/22-21:05:45.716 47e0 Delete type=0 #3

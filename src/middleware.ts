@@ -12,8 +12,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - all other files in the public folder
+     * - .vscode (VS Code directory)
+     * - api (API routes)
+     * - auth (Supabase auth routes)
+     * - files (public files)
+     * - etc.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api|auth|files).*)',
   ],
 }

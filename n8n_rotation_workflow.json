@@ -1,0 +1,212 @@
+{
+  "name": "Outreach Engine",\n  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",\n        "path": "outreach-trigger",\n        "authentication": "headerAuth",\n        "options": {}
+      },
+      "id": "7f8e9a0b-1c2d-4e5f-a6b7-c8d9e0f1a2b3",\n      "name": "Webhook",\n      "type": "n8n-nodes-base.webhook",\n      "typeVersion": 1,\n      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "headerAuth": {
+          "id": "X-API-KEY-Credential-ID",\n          "name": "Outreach API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Respond to Webhook",\n      "type": "n8n-nodes-base.respondToWebhook",\n      "typeVersion": 1,\n      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",\n        "table": "SenderAccount",\n        "filters": {\n          "conditions": [
+            {
+              "key": "userId",\n              "value": "={{ $node[\"Webhook\"].json.body.userId }}"
+            }
+          ]
+        }
+      },
+      "id": "s1e2n3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Get Sender Accounts",\n      "type": "n8n-nodes-base.supabase",\n      "typeVersion": 1,\n      "position": [
+        650,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",\n          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const accounts = $input.all();\nconst randomAccount = accounts[Math.floor(Math.random() * accounts.length)];\nreturn randomAccount;"
+      },
+      "id": "r1o2t3a4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Select Random Sender",\n      "type": "n8n-nodes-base.code",\n      "typeVersion": 2,\n      "position": [
+        850,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",\n        "url": "http://localhost:11434/api/chat",\n        "sendBody": true,\n        "bodyParameters": {\n          "parameters": [
+            {
+              "name": "model",\n              "value": "deepseek-v2"
+            },
+            {
+              "name": "messages",\n              "value": "=[{ \"role\": \"user\", \"content\": \"Write a very short (1 sentence) professional icebreaker for {{ $node[\\\"Get New Leads\\\"].json.firstName }} who works at {{ $node[\\\"Get New Leads\\\"].json.company }}. No generic filler.\" }]"
+            },
+            {
+              "name": "stream",\n              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "o1l2l3a4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Ollama DeepSeek AI",\n      "type": "n8n-nodes-base.httpRequest",\n      "typeVersion": 4,\n      "position": [
+        1250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",\n        "table": "Lead",\n        "filters": {\n          "conditions": [
+            {
+              "key": "userId",\n              "value": "={{ $node[\"Webhook\"].json.body.userId }}"
+            },
+            {
+              "key": "status",\n              "value": "New"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",\n      "name": "Get New Leads",\n      "type": "n8n-nodes-base.supabase",\n      "typeVersion": 1,\n      "position": [
+        1050,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",\n          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ Math.floor(Math.random() * (120 - 30 + 1) + 30) }}",\n        "unit": "seconds"
+      },
+      "id": "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c",\n      "name": "Jitter Wait",\n      "type": "n8n-nodes-base.wait",\n      "typeVersion": 1,\n      "position": [
+        1450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendRaw": true,
+        "rawMessage": "=From: {{ $node[\"Select Random Sender\"].json.email }}\nTo: {{ $node[\"Get New Leads\"].json.email }}\nSubject: Quick question for {{ $node[\"Get New Leads\"].json.firstName }}\nContent-Type: text/html; charset=utf-8\n\n<html><body><p>Hi {{ $node[\"Get New Leads\"].json.firstName }},</p><p>{{ $node[\"Ollama DeepSeek AI\"].json.message.content }}</p><p>Best,<br>Robel</p></body></html>",\n        "options": {\n          "host": "={{ $node[\"Select Random Sender\"].json.smtpHost }}",\n          "port": "={{ $node[\"Select Random Sender\"].json.smtpPort }}",\n          "user": "={{ $node[\"Select Random Sender\"].json.email }}",\n          "password": "={{ $node[\"Select Random Sender\"].json.smtpPassword }}"
+        }
+      },
+      "id": "g7h8i9j0-k1l2-4m3n-o4p5-q6r7s8t9u0v1",\n      "name": "Send Dynamic SMTP",\n      "type": "n8n-nodes-base.emailSend",\n      "typeVersion": 1,\n      "position": [
+        1650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",\n        "table": "Lead",\n        "filters": {\n          "conditions": [
+            {
+              "key": "id",\n              "value": "={{ $node[\"Get New Leads\"].json.id }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "status": "Contacted (Email)"
+        }
+      },
+      "id": "h8i9j0k1-l2m3-4n4o-p5q6-r7s8t9u0v1w2",\n      "name": "Update Lead Status",\n      "type": "n8n-nodes-base.supabase",\n      "typeVersion": 1,\n      "position": [
+        1850,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",\n          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",\n            "type": "main",\n            "index": 0
+          },
+          {
+            "node": "Get Sender Accounts",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sender Accounts": {
+      "main": [
+        [
+          {
+            "node": "Select Random Sender",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Random Sender": {
+      "main": [
+        [
+          {
+            "node": "Get New Leads",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get New Leads": {
+      "main": [
+        [
+          {
+            "node": "Ollama DeepSeek AI",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama DeepSeek AI": {
+      "main": [
+        [
+          {
+            "node": "Jitter Wait",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jitter Wait": {
+      "main": [
+        [
+          {
+            "node": "Send Dynamic SMTP",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Dynamic SMTP": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Status",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "hash": "rotation-ollama-v2"
+}

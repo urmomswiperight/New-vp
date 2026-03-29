@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
@@ -14,9 +15,28 @@ model User {
   email                     String?        @unique
   lemon_squeezy_customer_id String?        @unique
   usage_count               Int            @default(0)
+  createdAt                 DateTime       @default(now())
   leads                     Lead[]
   campaigns                 Campaign[]
   subscriptions             Subscription[]
+  senderAccounts            SenderAccount[]
+}
+
+model SenderAccount {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email         String   @unique
+  smtpHost      String
+  smtpPort      Int
+  smtpPassword  String
+  imapHost      String
+  imapPort      Int
+  imapPassword  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model Lead {
@@ -30,10 +50,31 @@ model Lead {
   linkedinUrl String?
   status    String   @default("New")
   region    String?
+  variant   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  drafts    LeadDraft[]
+
+  @@index([userId])
+}
+
+model LeadDraft {
+  id        String   @id @default(uuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  campaignId String
+  campaign  Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  content   String
+  subject   String?
+  status    String   @default("Pending") // Pending, Approved, Rejected, Sent
+  reasoning Json?      // AI reasoning for the draft
+  metadata  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId])
+  @@index([leadId])
+  @@index([campaignId])
 }
 
 model Campaign {
@@ -46,6 +87,7 @@ model Campaign {
   settings  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  drafts    LeadDraft[]
 
   @@index([userId])
 }
@@ -56,17 +98,22 @@ enum SubscriptionStatus {
   past_due
   canceled
   unpaid
+  pending_verification
+  inactive
 }
 
 model Subscription {
   id                        String             @id @default(uuid())
   userId                    String             @unique
   user                      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lemon_squeezy_id          String             @unique
-  variant_id                String
-  status                    SubscriptionStatus
-  current_period_end        DateTime
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  lemon_squeezy_id          String?            @unique
+  fiverr_order_id           String?            @unique
+  gumroad_sale_id           String?            @unique
+  gumroad_license_key       String?
+  variant_id                String?
+  status                    SubscriptionStatus @default(inactive)
+  current_period_end        DateTime?
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
 }
 

@@ -1,0 +1,130 @@
+{
+  "name": "The Closer: Inbound Reply Handler",\n  "nodes": [
+    {
+      "parameters": {
+        "pollInterval": "1m"
+      },
+      "id": "trigger-email",\n      "name": "IMAP Email Trigger",\n      "type": "n8n-nodes-base.emailReadImap",\n      "typeVersion": 2,\n      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "imap": {
+          "id": "YOUR_IMAP_CREDENTIAL_ID",\n          "name": "IMAP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean up HTML body to text\nconst body = $input.first().json.text || $input.first().json.html;\nreturn [{\n  json: {\n    ...$input.first().json,\n    cleaned_text: body.replace(/<[^>]*>?/gm, '')\n  }\n}];"
+      },
+      "id": "clean-html",\n      "name": "Clean Email Body",\n      "type": "n8n-nodes-base.code",\n      "typeVersion": 2,\n      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",\n        "text": "={{ $json.cleaned_text }}",\n        "options": {\n          "systemMessage": "You are a top-tier sales assistant for an AI Marketing Agency. Analyze the email reply below.\n\nOutput strictly JSON:\n{\n  \"sentiment\": \"positive|negative|neutral\",\n  \"intent\": \"interested|not_interested|question|out_of_office\",\n  \"draft_reply\": \"(Draft a persuasive response if interested/question, else null)\"\n}"
+        }
+      },
+      "id": "ai-analyze",\n      "name": "AI Sentiment Analysis",\n      "type": "@n8n/n8n-nodes-langchain.chainLlm",\n      "typeVersion": 1,\n      "position": [
+        650,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",\n          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.intent }}",\n              "operation": "equals",\n              "value2": "interested"
+            },
+            {
+              "value1": "={{ $json.intent }}",\n              "operation": "equals",\n              "value2": "question"
+            }
+          ]
+        }
+      },
+      "id": "filter-interested",\n      "name": "Is Interested?",\n      "type": "n8n-nodes-base.if",\n      "typeVersion": 2,\n      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "channel": "sales-leads",\n        "text": "🔥 HOT LEAD ALERT!\n\nFrom: {{ $node['trigger-email'].json.from }}\nSubject: {{ $node['trigger-email'].json.subject }}\n\nAI Draft:\n{{ $json.draft_reply }}",\n        "attachments": []
+      },
+      "id": "notify-slack",\n      "name": "Notify Slack",\n      "type": "n8n-nodes-base.slack",\n      "typeVersion": 2,\n      "position": [
+        1100,
+        200
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_SLACK_CREDENTIAL_ID",\n          "name": "Slack Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",\n        "table": "leads",\n        "columns": "status, last_reply_analysis",\n        "value": "={{ $json.intent === 'interested' ? 'hot' : 'warm' }}",\n        "where": {\n          "email": "={{ $node['trigger-email'].json.from }}"
+        }
+      },
+      "id": "update-db",\n      "name": "Update Lead Status",\n      "type": "n8n-nodes-base.postgres",\n      "typeVersion": 2,\n      "position": [
+        1100,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CREDENTIAL_ID",\n          "name": "Postgres Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Clean Email Body",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Email Body": {
+      "main": [
+        [
+          {
+            "node": "AI Sentiment Analysis",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Sentiment Analysis": {
+      "main": [
+        [
+          {
+            "node": "Is Interested?",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Interested?": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack",\n            "type": "main",\n            "index": 0
+          },
+          {
+            "node": "Update Lead Status",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

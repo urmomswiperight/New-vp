@@ -58,20 +58,19 @@ export async function runLinkedInOutreach(
     // 2. Randomize User Agent
     const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
-    // 3. Launch Browser with Stealth
-    const context = await chromium.launchPersistentContext(userDataDir, {
-        headless: true,
+    // 3. Connect to Browserless.io Remote Browser
+    const auth = process.env.BROWSERLESS_WSS; // wss://chrome.browserless.io?token=YOUR_API_KEY
+    if (!auth) {
+        throw new Error('BROWSERLESS_WSS is not defined in environment variables.');
+    }
+
+    console.log('Connecting to Browserless.io...');
+    const browser = await chromium.connectOverCDP(auth);
+    
+    // Create a fresh context for this session
+    const context = await browser.newContext({
         userAgent,
         viewport: { width: 1280 + Math.floor(Math.random() * 100), height: 720 + Math.floor(Math.random() * 100) },
-        args: [
-            '--disable-blink-features=AutomationControlled',
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-infobars',
-            '--window-position=0,0',
-            '--ignore-certificate-errors',
-            '--ignore-certificate-errors-spki-list'
-        ]
     });
 
     const page = await context.newPage();

@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -11,20 +11,30 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
+        get(name: string) {
+          return request.cookies.get(name)?.value
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value, options)
-          )
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          supabaseResponse.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+          supabaseResponse = NextResponse.next({
+            request,
+          })
+          supabaseResponse.cookies.set({ name, value: '', ...options })
         },
       },
     }
   )
 
-  // refreshing the auth token for the session
-  await supabase.auth.getSession()
+  // This will refresh session if expired - an expensive operation
+  // but necessary for keeping session fresh for Server Components.
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }

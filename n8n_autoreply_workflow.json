@@ -1,0 +1,214 @@
+{
+  "name": "Auto-Reply Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "postImportAction": "nothing",
+        "format": "resolved",
+        "options": {
+          "customFilters": "UNSEEN"
+        }
+      },
+      "id": "i1m2a3p4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "imap": {
+          "id": "IMAP-Credential-ID",
+          "name": "IMAP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "email",
+              "value": "={{ $json.from.address }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "s1u2p3a4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Find Lead in DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.id }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "i1f2_3_4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Is Lead Known?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "prompt": "=You are Robel, an AI Automation Expert. A lead just replied to your cold email.\n\nLEAD INFO:\n- Name: {{ $node[\"Find Lead in DB\"].json.firstName }}\n- Company: {{ $node[\"Find Lead in DB\"].json.company }}\n- Original Message from Lead: {{ $node[\"IMAP Email Trigger\"].json.text }}\n\nYOUR GOAL:\n- You are Robel, a dual-background Computer Science & Data Science expert specializing in LLM fine-tuning and RAG systems.\n- Reply in a natural, high-authority tone. You are a builder, not a salesman.\n- If they asked a question, provide a technically sound but simple answer.\n- If they are interested, suggest a quick 15-minute discovery call (Limited 1-week offer).\n- Mention you build systems that replace expensive $200-$400/mo SaaS stacks with $0/mo self-hosted infra.\n- Tone: Senior Engineer who understands ROI. No corporate jargon.\n- Keep it under 60 words.\n\nREPLY AS ROBEL:",
+        "options": {}
+      },
+      "id": "a1i2_3_4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "AI Auto-Reply Generator",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        850,
+        200
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "OpenAI-Credential-ID",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-email@example.com",
+        "toEmail": "={{ $node[\"IMAP Email Trigger\"].json.from.address }}",
+        "subject": "=Re: {{ $node[\"IMAP Email Trigger\"].json.subject }}",
+        "html": "=<html><body><p>Hi {{ $node[\"Find Lead in DB\"].json.firstName }},</p><p>{{ $json.choices[0].message.content }}</p><p>Best,<br>Robel</p></body></html>",
+        "options": {
+          "appendAttachement": false
+        }
+      },
+      "id": "s1e2n3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Send Personalized Reply",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP-Credential-ID",
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "id",
+              "value": "={{ $node[\"Find Lead in DB\"].json.id }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "status": "Replied"
+        }
+      },
+      "id": "u1p2d3a4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "Update Status to Replied",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find Lead in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Lead in DB": {
+      "main": [
+        [
+          {
+            "node": "Is Lead Known?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Lead Known?": {
+      "main": [
+        [
+          {
+            "node": "AI Auto-Reply Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Auto-Reply Generator": {
+      "main": [
+        [
+          {
+            "node": "Send Personalized Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Personalized Reply": {
+      "main": [
+        [
+          {
+            "node": "Update Status to Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "hash": "auto-reply-engine-v1"
+}

@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "gumroad": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "gumroad-mcp@latest"
+      ],
+      "env": {
+        "GUMROAD_ACCESS_TOKEN": "dKbRnWnMa9jZC67_JE8cIBSB7sOkiFuVlOTWLZlI18E"
+      }
+    },
+    "n8n-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--streamableHttp",
+        "https://robaaa.app.n8n.cloud/mcp-server/http",
+        "--header",
+        "authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNDc2OWEyMC00ZjU2LTQyOGQtODk5Yi0wY2ZmMTI4MDk5YmQiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImFmMTMwZTdmLWNiOTAtNGVmYi1hMjUwLWY4ZWRmZDQ0ZTUyYyIsImlhdCI6MTc3Mzc2NDM1MH0.Uq0vKygTfQYAdIiRcy4WvjJYyOnhQqzaaqwGD0uG1Rw"
+      ]
+    }
+  }
+}

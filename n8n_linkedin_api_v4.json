@@ -15,19 +15,19 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $vars[\"BASE_URL\"] || 'http://localhost:3000' }}/api/linkedin/outreach",
+        "url": "={{ $vars[\"API_BASE_URL\"] }}/api/linkedin/outreach",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Outreach-Secret",
-              "value": "={{ $vars[\"OUTREACH_SECRET\"] || 'your-secret-here' }}"
+              "value": "={{ $vars[\"OUTREACH_SECRET\"] }}"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"profileUrl\": \"https://www.linkedin.com/in/williamhgates/\",\n  \"message\": \"Hello Bill, testing my new LinkedIn API!\"\n}",
+        "jsonBody": "={\n  \"profileUrl\": \"https://www.linkedin.com/in/test-profile/\",\n  \"message\": \"SCROLL_AND_SCRAPE\"\n}",
         "options": {}
       },
       "id": "http-request",

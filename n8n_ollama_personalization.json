@@ -1,0 +1,158 @@
+{
+  "name": "Ollama Personalization - Supabase Native",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "timer-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableName": "Lead",
+        "limit": 50,
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "New"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-leads",
+      "name": "Get 50 New Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        220,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:11434/api/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "tinyllama:latest"
+            },
+            {
+              "name": "prompt",
+              "value": "=Write 1-sentence LinkedIn req. Lead: {{ $json.firstName }} @ {{ $json.company }}. Context: AI outreach for founders. Rule: <150 chars. No signatures. Output:"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ollama-node",
+      "name": "Ollama TinyLlama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "tableName": "Lead",
+        "updateKey": "id",
+        "dataToUpdate": {
+          "values": [
+            {
+              "column": "status",
+              "value": "Drafted"
+            },
+            {
+              "column": "metadata",
+              "value": "={{JSON.stringify(Object.assign($node[\"Get 50 New Leads\"].json.metadata || {}, { draft: $json.response.trim().split('\\n')[0], strategy: 'n8n-compressed' }))}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-lead",
+      "name": "Update Lead Status",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        660,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Get 50 New Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get 50 New Leads": {
+      "main": [
+        [
+          {
+            "node": "Ollama TinyLlama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama TinyLlama": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "hash": "personalization-v3"
+}

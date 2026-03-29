@@ -1,0 +1,15 @@
+--- LEAD STATS BY STATUS & VARIANT ---
+[
+  {
+    "status": "Contacted (LinkedIn)",
+    "variant": null,
+    "count": "5"
+  },
+  {
+    "status": "New",
+    "variant": null,
+    "count": "3621"
+  }
+]
+Total Leads: 3626
+Total Replies/Interest: 0
