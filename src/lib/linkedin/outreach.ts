@@ -1,0 +1,186 @@
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import path from 'path';
+import fs from 'fs';
+
+// Add stealth plugin
+chromium.use(StealthPlugin());
+
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15'
+];
+
+export interface OutreachResult {
+    success: boolean;
+    status?: string;
+    error?: string;
+    screenshot?: string;
+    countToday?: number;
+}
+
+export async function runLinkedInOutreach(
+    profileUrl: string,
+    message: string,
+    dailyLimit: number = 25
+): Promise<OutreachResult> {
+    const userDataDir = path.join(process.cwd(), '.playwright-sessions');
+    const logsDir = path.join(process.cwd(), 'logs');
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+
+    // 1. Check Daily Safety Limit
+    const today = new Date().toISOString().split('T')[0];
+    const limitFile = path.join(userDataDir, 'daily_count.json');
+    let dailyData = { date: today, count: 0 };
+    
+    if (fs.existsSync(limitFile)) {
+        try {
+            const savedData = JSON.parse(fs.readFileSync(limitFile, 'utf8'));
+            if (savedData.date === today) {
+                dailyData = savedData;
+            }
+        } catch (e) {
+            console.warn('Could not read daily count file, resetting.');
+        }
+    }
+
+    if (dailyData.count >= dailyLimit) {
+        return { 
+            success: false, 
+            error: `DAILY_LIMIT_REACHED: Already sent ${dailyData.count} today.` 
+        };
+    }
+
+    // 2. Randomize User Agent
+    const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+    // 3. Launch Browser with Stealth
+    const context = await chromium.launchPersistentContext(userDataDir, {
+        headless: true,
+        userAgent,
+        viewport: { width: 1280 + Math.floor(Math.random() * 100), height: 720 + Math.floor(Math.random() * 100) },
+        args: [
+            '--disable-blink-features=AutomationControlled',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-infobars',
+            '--window-position=0,0',
+            '--ignore-certificate-errors',
+            '--ignore-certificate-errors-spki-list'
+        ]
+    });
+
+    const page = await context.newPage();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const screenshotPath = path.join(logsDir, `linkedin-error-${timestamp}.png`);
+
+    try {
+        // Human-like navigation with jitter
+        console.log(`Navigating to ${profileUrl} using ${userAgent}...`);
+        await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        
+        // Random wait after load (3-7 seconds)
+        await page.waitForTimeout(3000 + Math.random() * 4000);
+
+        // Check for AuthWall
+        if (await page.$('.authwall-container')) {
+            throw new Error('AUTHWALL: Session invalid or blocked.');
+        }
+
+        // Research/Scrape Mode
+        if (message === 'SCROLL_AND_SCRAPE') {
+            await page.evaluate(() => window.scrollBy(0, 400 + Math.random() * 600));
+            await page.waitForTimeout(1500 + Math.random() * 1000);
+            await page.evaluate(() => window.scrollBy(0, 400 + Math.random() * 600));
+            const profileContent = await page.innerText('main').catch(() => 'Main not found');
+            return { success: true, status: 'Scraped', error: profileContent.substring(0, 5000) };
+        }
+
+        // Validate Profile Load
+        const nameElement = await page.waitForSelector('.text-heading-xlarge, .pv-top-card-section__name', { timeout: 20000 }).catch(() => null);
+        if (!nameElement) {
+            await page.screenshot({ path: screenshotPath });
+            throw new Error('PROFILE_NOT_LOADED: Name selector not found.');
+        }
+
+        // Check Connection Status
+        const pending = await page.$('button:has-text("Pending"), button:has-text("Requested")');
+        if (pending) {
+            return { success: true, status: 'Already pending', countToday: dailyData.count };
+        }
+
+        const messaging = await page.$('button:has-text("Message")');
+        if (messaging) {
+            return { success: true, status: 'Already connected', countToday: dailyData.count };
+        }
+
+        // Connection Flow
+        let connectBtn = await page.$('button.pvs-profile-actions__action:has-text("Connect")');
+        if (!connectBtn) {
+            // Check in "More" menu
+            const moreBtn = await page.$('button[aria-label="More actions"]');
+            if (moreBtn) {
+                await moreBtn.click();
+                await page.waitForTimeout(1000 + Math.random() * 1000);
+                connectBtn = await page.$('div[role="button"]:has-text("Connect"), button:has-text("Connect")');
+            }
+        }
+
+        if (!connectBtn) {
+            throw new Error('CONNECT_BUTTON_NOT_FOUND');
+        }
+
+        // Randomized delay before click
+        await page.waitForTimeout(1000 + Math.random() * 2000);
+        await connectBtn.click();
+        await page.waitForTimeout(1500 + Math.random() * 1500);
+
+        // Add Note
+        const addNoteBtn = await page.waitForSelector('button[aria-label="Add a note"]', { timeout: 7000 }).catch(() => null);
+        if (addNoteBtn) {
+            await addNoteBtn.click();
+            const textArea = await page.waitForSelector('textarea[name="message"]', { timeout: 7000 });
+            
+            // Human-like typing with jitter per character
+            for (const char of message) {
+                await page.keyboard.type(char, { delay: 50 + Math.random() * 150 });
+            }
+            
+            await page.waitForTimeout(1000 + Math.random() * 2000);
+            const sendBtn = await page.waitForSelector('button[aria-label="Send now"]');
+            await sendBtn.click();
+        } else {
+            // Direct send if note not allowed or different UI
+            const sendNow = await page.$('button[aria-label="Send now"]');
+            if (sendNow) {
+                await sendNow.click();
+            } else {
+                throw new Error('COULD_NOT_SEND: Neither "Add a note" nor "Send now" found.');
+            }
+        }
+
+        // Final Verification & Limit Tracking
+        await page.waitForTimeout(4000 + Math.random() * 2000);
+        const limitReached = await page.$('text=weekly invitation limit');
+        if (limitReached) {
+            throw new Error('WEEKLY_LIMIT_REACHED');
+        }
+
+        // Update Daily Count
+        dailyData.count++;
+        if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
+        fs.writeFileSync(limitFile, JSON.stringify(dailyData));
+
+        return { success: true, status: 'Sent', countToday: dailyData.count };
+
+    } catch (error: any) {
+        await page.screenshot({ path: screenshotPath }).catch(() => {});
+        return { success: false, error: error.message, screenshot: screenshotPath };
+    } finally {
+        await context.close();
+    }
+}
