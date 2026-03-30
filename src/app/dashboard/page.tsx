@@ -70,7 +70,7 @@ export default async function DashboardPage() {
     B: { sent: 0, replied: 0, interested: 0 }
   }
 
-  variantStats.forEach(stat => {
+  variantStats.forEach((stat: { variant: string | null, status: string, _count: number }) => {
     const v = stat.variant as 'A' | 'B'
     if (!v) return
     if (['Contacted', 'Contacted (Email)', 'Contacted (LinkedIn)'].includes(stat.status)) {
