@@ -15,7 +15,13 @@ const prismaClientSingleton = () => {
   }
 
   const connectionString = process.env.DATABASE_URL
+  
   if (!connectionString) {
+    // If we're building, we don't necessarily need the DB
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('DATABASE_URL is not defined. Returning dummy Prisma client during build.')
+      return {} as any
+    }
     throw new Error('DATABASE_URL is not defined')
   }
 
