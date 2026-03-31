@@ -1,10 +1,13 @@
-import { chromium } from 'playwright-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import path from 'path';
 import fs from 'fs';
 
-// Add stealth plugin
-chromium.use(StealthPlugin());
+export interface OutreachResult {
+    success: boolean;
+    status?: string;
+    error?: string;
+    screenshot?: string;
+    countToday?: number;
+}
 
 const USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -15,19 +18,22 @@ const USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15'
 ];
 
-export interface OutreachResult {
-    success: boolean;
-    status?: string;
-    error?: string;
-    screenshot?: string;
-    countToday?: number;
-}
-
 export async function runLinkedInOutreach(
     profileUrl: string,
     message: string,
     dailyLimit: number = 25
 ): Promise<OutreachResult> {
+    // Dynamic imports to prevent build-time evaluation errors on Vercel
+    const { chromium } = await import('playwright-extra');
+    const { default: StealthPlugin } = await import('puppeteer-extra-plugin-stealth');
+    
+    // Add stealth plugin (only if not already added in this process)
+    try {
+        chromium.use(StealthPlugin());
+    } catch (e) {
+        // Ignore errors if already used
+    }
+
     const userDataDir = path.join(process.cwd(), '.playwright-sessions');
     const logsDir = path.join(process.cwd(), 'logs');
     if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
