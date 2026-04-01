@@ -1,6 +1,0 @@
-2026/03/24-22:11:31.869 3ec8 Reusing MANIFEST D:\N8N workflows\.playwright-sessions\Default\Asset Store\assets.db/MANIFEST-000001
-2026/03/24-22:11:31.880 3ec8 Recovering log #3
-2026/03/24-22:11:42.858 3ec8 (ignoring error) D:\N8N workflows\.playwright-sessions\Default\Asset Store\assets.db/000003.log: dropping 31944 bytes; Corruption: checksum mismatch
-2026/03/24-22:11:58.189 3ec8 (ignoring error) D:\N8N workflows\.playwright-sessions\Default\Asset Store\assets.db/000003.log: dropping 32761 bytes; Corruption: missing start of fragmented record(1)
-2026/03/24-22:12:17.603 3ec8 (ignoring error) D:\N8N workflows\.playwright-sessions\Default\Asset Store\assets.db/000003.log: dropping 32761 bytes; Corruption: missing start of fragmented record(1)
-2026/03/24-22:13:22.126 3ec8 (ignoring error) D:\N8N workflows\.playwright-sessions\Default\Asset Store\assets.db/000003.log: dropping 32761 bytes; Corruption: missing start of fragmented record(1)

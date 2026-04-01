@@ -1,6 +1,0 @@
-2026/03/15-20:01:58.417 47c8 Reusing MANIFEST D:\N8N workflows\.playwright-sessions\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
-2026/03/15-20:01:58.611 47c8 Recovering log #7
-2026/03/15-20:01:58.611 47c8 Reusing old log D:\N8N workflows\.playwright-sessions\Default\EdgeCoupons/coupons_data.db/000007.log 
-2026/03/15-20:03:35.073 3d9c Level-0 table #11: started
-2026/03/15-20:03:35.435 3d9c Level-0 table #11: 681704 bytes OK
-2026/03/15-20:03:35.874 3d9c Delete type=0 #7
