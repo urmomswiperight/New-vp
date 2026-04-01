@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
 export interface OutreachResult {
     success: boolean;
@@ -34,8 +35,15 @@ export async function runLinkedInOutreach(
         // Ignore errors if already used
     }
 
-    const userDataDir = path.join(process.cwd(), '.playwright-sessions');
-    const logsDir = path.join(process.cwd(), 'logs');
+    // Use /tmp for Vercel compatibility (read-only filesystem elsewhere)
+    const isVercel = process.env.VERCEL === '1';
+    const baseDir = isVercel ? os.tmpdir() : process.cwd();
+    
+    const userDataDir = path.join(baseDir, '.playwright-sessions');
+    const logsDir = path.join(baseDir, 'logs');
+    
+    // Ensure directories exist in /tmp
+    if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
     if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
     // 1. Check Daily Safety Limit
@@ -177,7 +185,6 @@ export async function runLinkedInOutreach(
 
         // Update Daily Count
         dailyData.count++;
-        if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
         fs.writeFileSync(limitFile, JSON.stringify(dailyData));
 
         return { success: true, status: 'Sent', countToday: dailyData.count };
