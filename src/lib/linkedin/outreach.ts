@@ -24,25 +24,28 @@ export async function runLinkedInOutreach(
     message: string,
     dailyLimit: number = 25
 ): Promise<OutreachResult> {
-    // Dynamic imports to prevent build-time evaluation errors on Vercel
-    const { chromium } = await import('playwright-extra');
+    // Manually link playwright-core to playwright-extra to bypass auto-detection failures on Vercel
+    const { chromium: baseChromium } = await import('playwright-core');
+    const { addExtra } = await import('playwright-extra');
     const { default: StealthPlugin } = await import('puppeteer-extra-plugin-stealth');
     
-    // Add stealth plugin (only if not already added in this process)
+    // Create the "extra" version of chromium
+    const chromium = addExtra(baseChromium);
+    
+    // Add stealth plugin
     try {
         chromium.use(StealthPlugin());
     } catch (e) {
-        // Ignore errors if already used
+        // Ignore if already added
     }
 
-    // Use /tmp for Vercel compatibility (read-only filesystem elsewhere)
+    // Use /tmp for Vercel compatibility
     const isVercel = process.env.VERCEL === '1';
     const baseDir = isVercel ? os.tmpdir() : process.cwd();
     
     const userDataDir = path.join(baseDir, '.playwright-sessions');
     const logsDir = path.join(baseDir, 'logs');
     
-    // Ensure directories exist in /tmp
     if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
     if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
@@ -69,19 +72,16 @@ export async function runLinkedInOutreach(
         };
     }
 
-    // 2. Randomize User Agent
     const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
-    // 3. Connect to Browserless.io Remote Browser
-    const auth = process.env.BROWSERLESS_WSS; // wss://chrome.browserless.io?token=YOUR_API_KEY
+    const auth = process.env.BROWSERLESS_WSS;
     if (!auth) {
-        throw new Error('BROWSERLESS_WSS is not defined in environment variables.');
+        throw new Error('BROWSERLESS_WSS is not defined.');
     }
 
     console.log('Connecting to Browserless.io...');
     const browser = await chromium.connectOverCDP(auth);
     
-    // Create a fresh context for this session
     const context = await browser.newContext({
         userAgent,
         viewport: { width: 1280 + Math.floor(Math.random() * 100), height: 720 + Math.floor(Math.random() * 100) },
@@ -92,19 +92,14 @@ export async function runLinkedInOutreach(
     const screenshotPath = path.join(logsDir, `linkedin-error-${timestamp}.png`);
 
     try {
-        // Human-like navigation with jitter
-        console.log(`Navigating to ${profileUrl} using ${userAgent}...`);
+        console.log(`Navigating to ${profileUrl}...`);
         await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        
-        // Random wait after load (3-7 seconds)
         await page.waitForTimeout(3000 + Math.random() * 4000);
 
-        // Check for AuthWall
         if (await page.$('.authwall-container')) {
             throw new Error('AUTHWALL: Session invalid or blocked.');
         }
 
-        // Research/Scrape Mode
         if (message === 'SCROLL_AND_SCRAPE') {
             await page.evaluate(() => window.scrollBy(0, 400 + Math.random() * 600));
             await page.waitForTimeout(1500 + Math.random() * 1000);
@@ -113,14 +108,11 @@ export async function runLinkedInOutreach(
             return { success: true, status: 'Scraped', error: profileContent.substring(0, 5000) };
         }
 
-        // Validate Profile Load
         const nameElement = await page.waitForSelector('.text-heading-xlarge, .pv-top-card-section__name', { timeout: 20000 }).catch(() => null);
         if (!nameElement) {
-            await page.screenshot({ path: screenshotPath });
-            throw new Error('PROFILE_NOT_LOADED: Name selector not found.');
+            throw new Error('PROFILE_NOT_LOADED');
         }
 
-        // Check Connection Status
         const pending = await page.$('button:has-text("Pending"), button:has-text("Requested")');
         if (pending) {
             return { success: true, status: 'Already pending', countToday: dailyData.count };
@@ -131,10 +123,8 @@ export async function runLinkedInOutreach(
             return { success: true, status: 'Already connected', countToday: dailyData.count };
         }
 
-        // Connection Flow
         let connectBtn = await page.$('button.pvs-profile-actions__action:has-text("Connect")');
         if (!connectBtn) {
-            // Check in "More" menu
             const moreBtn = await page.$('button[aria-label="More actions"]');
             if (moreBtn) {
                 await moreBtn.click();
@@ -147,43 +137,35 @@ export async function runLinkedInOutreach(
             throw new Error('CONNECT_BUTTON_NOT_FOUND');
         }
 
-        // Randomized delay before click
         await page.waitForTimeout(1000 + Math.random() * 2000);
         await connectBtn.click();
         await page.waitForTimeout(1500 + Math.random() * 1500);
 
-        // Add Note
         const addNoteBtn = await page.waitForSelector('button[aria-label="Add a note"]', { timeout: 7000 }).catch(() => null);
         if (addNoteBtn) {
             await addNoteBtn.click();
             const textArea = await page.waitForSelector('textarea[name="message"]', { timeout: 7000 });
-            
-            // Human-like typing with jitter per character
             for (const char of message) {
                 await page.keyboard.type(char, { delay: 50 + Math.random() * 150 });
             }
-            
             await page.waitForTimeout(1000 + Math.random() * 2000);
             const sendBtn = await page.waitForSelector('button[aria-label="Send now"]');
             await sendBtn.click();
         } else {
-            // Direct send if note not allowed or different UI
             const sendNow = await page.$('button[aria-label="Send now"]');
             if (sendNow) {
                 await sendNow.click();
             } else {
-                throw new Error('COULD_NOT_SEND: Neither "Add a note" nor "Send now" found.');
+                throw new Error('COULD_NOT_SEND');
             }
         }
 
-        // Final Verification & Limit Tracking
         await page.waitForTimeout(4000 + Math.random() * 2000);
         const limitReached = await page.$('text=weekly invitation limit');
         if (limitReached) {
             throw new Error('WEEKLY_LIMIT_REACHED');
         }
 
-        // Update Daily Count
         dailyData.count++;
         fs.writeFileSync(limitFile, JSON.stringify(dailyData));
 
