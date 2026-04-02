@@ -25,13 +25,13 @@ export default async function DashboardPage() {
     prisma.lead.count({ 
       where: { 
         userId: user.id,
-        status: { in: ['Contacted', 'Contacted (Email)', 'Contacted (LinkedIn)'] }
+        status: { in: ['Contacted', 'Contacted (Email)', 'Contacted (LinkedIn)', 'Contacted (ManyReach)'] }
       } 
     }),
     prisma.lead.count({ 
       where: { 
         userId: user.id,
-        status: { in: ['Contacted', 'Contacted (Email)', 'Contacted (LinkedIn)'] },
+        status: { in: ['Contacted', 'Contacted (Email)', 'Contacted (LinkedIn)', 'Contacted (ManyReach)'] },
         updatedAt: { gte: today }
       } 
     }),
