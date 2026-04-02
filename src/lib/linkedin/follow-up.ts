@@ -38,7 +38,7 @@ export async function runLinkedInFollowUp(
             status: 'Contacted (LinkedIn)',
             updatedAt: { lte: cutoffDate }
         },
-        limit: 5 // Limit per run to stay safe
+        take: 5 // Limit per run to stay safe
     });
 
     if (eligibleLeads.length === 0) {
