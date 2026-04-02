@@ -25,6 +25,14 @@ const prismaClientSingleton = () => {
     throw new Error('DATABASE_URL is not defined')
   }
 
+  // DEBUG LOG: Print host to Vercel logs (safe)
+  try {
+    const url = new URL(connectionString.replace('postgres://', 'http://').replace('postgresql://', 'http://'));
+    console.log(`[Prisma] Connecting to host: ${url.hostname}`);
+  } catch (e) {
+    console.log('[Prisma] Could not parse connection string for logging');
+  }
+
   const pool = new Pool({ connectionString })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
