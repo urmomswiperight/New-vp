@@ -1,4 +1,4 @@
-import type { Browser } from 'playwright-core';
+import type { Browser, BrowserContext } from 'playwright-core';
 
 /**
  * Connects to Browserless.io with improved retry logic and exponential backoff.
@@ -43,8 +43,7 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
                 throw e;
             }
 
-            // Exponential backoff: 5s, 10s, 20s, 40s...
-            // Add jitter to avoid thundering herd (multiple instances retrying at the same time)
+            // Exponential backoff
             const waitTime = Math.pow(2, retries - 1) * 5000 + Math.random() * 2000;
             
             let extraHelp = '';
@@ -58,4 +57,29 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
     }
 
     throw new Error('Unreachable: Failed to connect to Browserless.');
+}
+
+/**
+ * Injects LinkedIn authentication cookies if available in environment variables.
+ * This is crucial for Vercel where the filesystem is ephemeral.
+ */
+export async function injectLinkedInCookies(context: BrowserContext) {
+    const liAt = process.env.LI_AT;
+    
+    if (liAt) {
+        console.log('Injecting LI_AT cookie for authentication...');
+        await context.addCookies([
+            {
+                name: 'li_at',
+                value: liAt,
+                domain: '.www.linkedin.com',
+                path: '/',
+                httpOnly: true,
+                secure: true,
+                sameSite: 'None'
+            }
+        ]);
+    } else {
+        console.warn('WARNING: LI_AT environment variable is not set. LinkedIn will likely show an authwall/login screen.');
+    }
 }

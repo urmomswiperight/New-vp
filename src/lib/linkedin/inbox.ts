@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import prisma from '@/lib/prisma';
-import { connectToBrowserless } from '@/lib/browser';
+import { connectToBrowserless, injectLinkedInCookies } from '@/lib/browser';
 
 export interface InboxCheckResult {
     success: boolean;
@@ -25,6 +25,10 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
     }
     
     const context = await browser.newContext();
+    
+    // Inject cookies for authentication
+    await injectLinkedInCookies(context);
+
     const page = await context.newPage();
 
     const repliedLeads: string[] = [];

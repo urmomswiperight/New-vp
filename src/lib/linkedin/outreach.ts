@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { connectToBrowserless } from '@/lib/browser';
+import { connectToBrowserless, injectLinkedInCookies } from '@/lib/browser';
 
 export interface OutreachResult {
     success: boolean;
@@ -72,6 +72,9 @@ export async function runLinkedInOutreach(
         userAgent,
         viewport: { width: 1280 + Math.floor(Math.random() * 100), height: 720 + Math.floor(Math.random() * 100) },
     });
+
+    // Inject cookies for authentication
+    await injectLinkedInCookies(context);
 
     const page = await context.newPage();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
