@@ -59,6 +59,17 @@ export async function runLinkedInFollowUp(
                 await page.goto(lead.linkedinUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
                 await page.waitForTimeout(4000);
 
+                // Check for AuthWall
+                if (await page.$('.authwall-container')) {
+                    throw new Error('AUTHWALL: Session invalid or blocked.');
+                }
+
+                // Check if profile loaded (verify name)
+                const nameElement = await page.waitForSelector('.text-heading-xlarge, .pv-top-card-section__name', { timeout: 20000 }).catch(() => null);
+                if (!nameElement) {
+                    throw new Error('PROFILE_NOT_LOADED');
+                }
+
                 // Click "Message" button
                 const messageBtn = await page.$('button:has-text("Message")');
                 if (messageBtn) {
@@ -66,7 +77,7 @@ export async function runLinkedInFollowUp(
                     await page.waitForTimeout(2000);
 
                     // Type follow-up message
-                    const editor = await page.waitForSelector('.msg-form__contenteditable[role="textbox"]', { timeout: 10000 });
+                    const editor = await page.waitForSelector('.msg-form__contenteditable[role="textbox"]', { timeout: 10000 }).catch(() => null);
                     if (editor) {
                         const personalizedMessage = message.replace(/\[Name\]/g, lead.firstName || 'there');
                         await editor.fill(personalizedMessage);
@@ -83,10 +94,15 @@ export async function runLinkedInFollowUp(
                         });
                         sentLeads.push(lead.email);
                         console.log(`Follow-Up: Sent to ${lead.firstName}`);
+                    } else {
+                        throw new Error('MESSAGE_EDITOR_NOT_FOUND');
                     }
+                } else {
+                    throw new Error('MESSAGE_BUTTON_NOT_FOUND');
                 }
-            } catch (err) {
-                console.error(`Follow-Up: Failed for ${lead.firstName}:`, err);
+            } catch (err: any) {
+                console.error(`Follow-Up: Failed for ${lead.firstName}:`, err.message);
+                // We don't throw here to allow other leads to be processed, but we log it
             } finally {
                 await context.close().catch(() => {});
             }
