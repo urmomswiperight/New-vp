@@ -79,8 +79,26 @@ export async function runLinkedInOutreach(
         throw new Error('BROWSERLESS_WSS is not defined.');
     }
 
+    if (!auth.includes('token=')) {
+        console.warn('WARNING: BROWSERLESS_WSS does not contain a ?token=... parameter. This will cause 429 errors.');
+    }
+
     console.log('Connecting to Browserless.io...');
-    const browser = await chromium.connectOverCDP(auth);
+    let browser;
+    let retries = 3;
+    while (retries > 0) {
+        try {
+            browser = await chromium.connectOverCDP(auth);
+            break;
+        } catch (e: any) {
+            retries--;
+            if (retries === 0) throw e;
+            console.warn(`Connection failed, retrying in 5s... (${retries} left). Error: ${e.message}`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
+    
+    if (!browser) throw new Error('Failed to connect to Browserless after retries.');
     
     const context = await browser.newContext({
         userAgent,

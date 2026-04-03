@@ -46,7 +46,24 @@ export async function runLinkedInFollowUp(
     }
 
     console.log(`Follow-Up: Found ${eligibleLeads.length} leads to nudge.`);
-    const browser = await chromium.connectOverCDP(auth);
+    
+    console.log('Follow-Up: Connecting to Browserless.io...');
+    let browser;
+    let retries = 3;
+    while (retries > 0) {
+        try {
+            browser = await chromium.connectOverCDP(auth);
+            break;
+        } catch (e: any) {
+            retries--;
+            if (retries === 0) throw e;
+            console.warn(`Follow-Up: Connection failed, retrying in 5s... (${retries} left). Error: ${e.message}`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
+    
+    if (!browser) throw new Error('Failed to connect to Browserless after retries.');
+    
     const sentLeads: string[] = [];
 
     try {
