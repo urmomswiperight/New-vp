@@ -1,24 +1,27 @@
 # LinkedIn Auth State Management (Vercel + Browserless)
 
-If you are seeing `PROFILE_NOT_LOADED` or `AUTHWALL`, it means LinkedIn has logged out your session or is blocking the connection.
+If you are seeing `PROFILE_NOT_LOADED`, `AUTHWALL`, or `SESSION_INVALID`, it means LinkedIn is blocking your session. **Single cookies like `li_at` are no longer enough for stable automation.**
 
-## How to Fix Auth Issues
+## How to Fix Auth Issues (The "Full Session" Method)
 
-### Option 1: Manual Session Sync (Most Reliable)
-1.  **Run the local login script:**
+To bypass LinkedIn's advanced security, we now use a "Full Session" injection.
+
+### Step 1: Extract your Full Session JSON
+1.  Open Chrome/Edge and log in to LinkedIn.
+2.  Install the **"EditThisCookie"** extension or similar.
+3.  Click the extension icon while on LinkedIn, click **Export**, and it will copy your cookies to your clipboard.
+4.  **Alternatively (Better):** Use Playwright to capture it:
     ```bash
-    npm install
     npx ts-node scripts/linkedin-login.ts
     ```
-2.  A browser window will open. **Log in to LinkedIn manually.**
-3.  Once logged in, close the browser. This saves your session to `.playwright-sessions/`.
-4.  **Transfer to Browserless:** Browserless sessions on Vercel are ephemeral. To keep them alive, you should periodically run a "keep-alive" or ensure your `BROWSERLESS_WSS` is connecting to a persistent instance if your plan supports it.
+    Wait for it to open, log in, then close it. Now, you need to convert `.playwright-sessions/` into a JSON string. (We will provide a script for this soon).
 
-### Option 2: Browserless Dashboard Login
-1.  Go to your [Browserless.io Debugger](https://browserless.io/debugger).
-2.  Connect to your instance.
-3.  Navigate to `linkedin.com/login` and log in.
-4.  If your Browserless plan supports **"Persistent File System"**, your session will stay active.
+### Step 2: Set the `LI_SESSION` Environment Variable
+1.  Go to your **Vercel Dashboard** -> Settings -> Environment Variables.
+2.  Add a new variable:
+    *   **Key:** `LI_SESSION`
+    *   **Value:** Paste the JSON string of your cookies. It should look like `{"cookies": [...], "origins": [...]}`.
+3.  **Redeploy** your Vercel app.
 
 ## Required Environment Variables
 
@@ -26,13 +29,12 @@ Ensure these are set in Vercel:
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | Postgres Connection String | `postgres://user:pass@host:5432/db?sslmode=disable` |
-| `BROWSERLESS_WSS` | Browserless WebSocket URL | `wss://chrome.browserless.io?token=YOUR_TOKEN` |
+| `LI_SESSION` | **Full JSON Session (Recommended)** | `{"cookies": [...]}` |
+| `LI_AT` | Legacy single cookie (Backup) | `AQED...` |
+| `DATABASE_URL` | Postgres Connection String | `postgres://...` |
+| `BROWSERLESS_WSS` | Browserless WebSocket URL | `wss://...` |
 | `OUTREACH_SECRET` | API Security Password | `your_secret_here` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Project URL | `https://xyz.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anon Key | `eyJhbG...` |
 
 ## Tips for Avoiding Blocks
-*   **Limit Frequency:** Don't run the `check-inbox` more than once every 2 hours.
-*   **Batching:** In n8n, process leads one by one with a 10-second delay.
-*   **User Agents:** The system now rotates user agents automatically.
+*   **Batching:** In n8n, process leads **one by one** with a **15-second delay**.
+*   **Health Check:** The system now automatically checks your session health before every task. If it's invalid, it won't burn your lead credits.

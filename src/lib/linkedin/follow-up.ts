@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import prisma from '@/lib/prisma';
-import { connectToBrowserless, injectLinkedInCookies } from '@/lib/browser';
+import { connectToBrowserless, injectLinkedInAuth, checkSessionHealth } from '@/lib/browser';
 
 export interface FollowUpResult {
     success: boolean;
@@ -37,7 +37,7 @@ export async function runLinkedInFollowUp(
 
     console.log(`Follow-Up: Found ${eligibleLeads.length} leads to nudge.`);
     
-    console.log('Follow-Up: Attempting connection...');
+    console.log('Follow-Up: Connecting...');
     let browser;
     try {
         browser = await connectToBrowserless();
@@ -53,12 +53,17 @@ export async function runLinkedInFollowUp(
 
             const context = await browser.newContext();
             
-            // Inject cookies for authentication
-            await injectLinkedInCookies(context);
+            // Inject auth state
+            await injectLinkedInAuth(context);
 
             const page = await context.newPage();
 
             try {
+                const isHealthy = await checkSessionHealth(page);
+                if (!isHealthy) {
+                    throw new Error('SESSION_INVALID: Please update your LI_SESSION.');
+                }
+
                 console.log(`Follow-Up: Navigating to ${lead.firstName} (${lead.linkedinUrl})`);
                 await page.goto(lead.linkedinUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
                 await page.waitForTimeout(4000);
@@ -68,45 +73,51 @@ export async function runLinkedInFollowUp(
                     throw new Error('AUTHWALL: Session invalid or blocked.');
                 }
 
-                // Check if profile loaded (verify name)
-                const nameElement = await page.waitForSelector('.text-heading-xlarge, .pv-top-card-section__name', { timeout: 20000 }).catch(() => null);
-                if (!nameElement) {
+                // Verify profile loaded
+                const nameHeader = await page.getByRole('heading', { level: 1 }).filter({ hasText: /[a-zA-Z]/ }).first();
+                if (!await nameHeader.isVisible()) {
                     throw new Error('PROFILE_NOT_LOADED');
                 }
 
                 // Click "Message" button
-                const messageBtn = await page.$('button:has-text("Message")');
-                if (messageBtn) {
+                const messageBtn = await page.getByRole('button', { name: /Message/i }).first();
+                if (await messageBtn.isVisible()) {
                     await messageBtn.click();
                     await page.waitForTimeout(2000);
 
                     // Type follow-up message
-                    const editor = await page.waitForSelector('.msg-form__contenteditable[role="textbox"]', { timeout: 10000 }).catch(() => null);
-                    if (editor) {
+                    const editor = await page.getByRole('textbox', { name: /Type a message/i }).first();
+                    if (!await editor.isVisible()) {
+                        // Fallback to class-based selector for editor
+                        const fallbackEditor = await page.waitForSelector('.msg-form__contenteditable', { timeout: 5000 }).catch(() => null);
+                        if (fallbackEditor) {
+                            const personalizedMessage = message.replace(/\[Name\]/g, lead.firstName || 'there');
+                            await fallbackEditor.fill(personalizedMessage);
+                        } else {
+                            throw new Error('MESSAGE_EDITOR_NOT_FOUND');
+                        }
+                    } else {
                         const personalizedMessage = message.replace(/\[Name\]/g, lead.firstName || 'there');
                         await editor.fill(personalizedMessage);
-                        await page.waitForTimeout(1000);
-                        
-                        const sendBtn = await page.waitForSelector('.msg-form__send-button');
-                        await sendBtn.click();
-                        await page.waitForTimeout(2000);
-
-                        // Update Database
-                        await prisma.lead.update({
-                            where: { id: lead.id },
-                            data: { status: 'Followed Up' }
-                        });
-                        sentLeads.push(lead.email);
-                        console.log(`Follow-Up: Sent to ${lead.firstName}`);
-                    } else {
-                        throw new Error('MESSAGE_EDITOR_NOT_FOUND');
                     }
+                    
+                    await page.waitForTimeout(1000);
+                    const sendBtn = await page.getByRole('button', { name: /Send/i }).first();
+                    await sendBtn.click();
+                    await page.waitForTimeout(2000);
+
+                    // Update Database
+                    await prisma.lead.update({
+                        where: { id: lead.id },
+                        data: { status: 'Followed Up' }
+                    });
+                    sentLeads.push(lead.email);
+                    console.log(`Follow-Up: Sent to ${lead.firstName}`);
                 } else {
                     throw new Error('MESSAGE_BUTTON_NOT_FOUND');
                 }
             } catch (err: any) {
                 console.error(`Follow-Up: Failed for ${lead.firstName}:`, err.message);
-                // We don't throw here to allow other leads to be processed, but we log it
             } finally {
                 await context.close().catch(() => {});
             }

@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import prisma from '@/lib/prisma';
-import { connectToBrowserless, injectLinkedInCookies } from '@/lib/browser';
+import { connectToBrowserless, injectLinkedInAuth, checkSessionHealth } from '@/lib/browser';
 
 export interface InboxCheckResult {
     success: boolean;
@@ -16,7 +16,7 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
     const userDataDir = path.join(baseDir, '.playwright-sessions');
     if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
 
-    console.log('Inbox Check: Attempting connection...');
+    console.log('Inbox Check: Connecting...');
     let browser;
     try {
         browser = await connectToBrowserless();
@@ -26,14 +26,18 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
     
     const context = await browser.newContext();
     
-    // Inject cookies for authentication
-    await injectLinkedInCookies(context);
+    // Inject auth state
+    await injectLinkedInAuth(context);
 
     const page = await context.newPage();
-
     const repliedLeads: string[] = [];
 
     try {
+        const isHealthy = await checkSessionHealth(page);
+        if (!isHealthy) {
+            throw new Error('SESSION_INVALID: Please update your LI_SESSION.');
+        }
+
         // 2. Navigate to LinkedIn Messaging
         console.log('Inbox Check: Navigating to Messaging...');
         await page.goto('https://www.linkedin.com/messaging/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -45,20 +49,16 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
         }
 
         // 3. Scan for "Unread" or "New" messages
-        // LinkedIn marks unread conversations with specific CSS classes
         const unreadConversations = await page.$$('.msg-conversation-card--unread');
         console.log(`Inbox Check: Found ${unreadConversations.length} unread conversations.`);
 
         for (const conv of unreadConversations) {
             try {
-                // Get the name of the person who messaged
                 const nameElement = await conv.$('.msg-conversation-card__participant-names');
                 const name = await nameElement?.innerText();
 
                 if (name) {
                     console.log(`Inbox Check: Processing unread message from ${name}`);
-                    
-                    // Find this lead in our database by name (fuzzy match)
                     const [firstName, ...lastNameParts] = name.split(' ');
                     const lastName = lastNameParts.join(' ');
 
@@ -71,7 +71,6 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
                     });
 
                     if (lead) {
-                        // 4. Update Database
                         await prisma.lead.update({
                             where: { id: lead.id },
                             data: { status: 'Replied' }
