@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import { connectToBrowserless } from '@/lib/browser';
 
 export interface OutreachResult {
     success: boolean;
@@ -24,21 +25,6 @@ export async function runLinkedInOutreach(
     message: string,
     dailyLimit: number = 25
 ): Promise<OutreachResult> {
-    // Manually link playwright-core to playwright-extra to bypass auto-detection failures on Vercel
-    const { chromium: baseChromium } = await import('playwright-core');
-    const { addExtra } = await import('playwright-extra');
-    const { default: StealthPlugin } = await import('puppeteer-extra-plugin-stealth');
-    
-    // Create the "extra" version of chromium
-    const chromium = addExtra(baseChromium);
-    
-    // Add stealth plugin
-    try {
-        chromium.use(StealthPlugin());
-    } catch (e) {
-        // Ignore if already added
-    }
-
     // Use /tmp for Vercel compatibility
     const isVercel = process.env.VERCEL === '1';
     const baseDir = isVercel ? os.tmpdir() : process.cwd();
@@ -74,31 +60,13 @@ export async function runLinkedInOutreach(
 
     const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
-    const auth = process.env.BROWSERLESS_WSS;
-    if (!auth) {
-        throw new Error('BROWSERLESS_WSS is not defined.');
-    }
-
-    if (!auth.includes('token=')) {
-        console.warn('WARNING: BROWSERLESS_WSS does not contain a ?token=... parameter. This will cause 429 errors.');
-    }
-
-    console.log('Connecting to Browserless.io...');
+    console.log('LinkedIn Outreach: Attempting connection...');
     let browser;
-    let retries = 3;
-    while (retries > 0) {
-        try {
-            browser = await chromium.connectOverCDP(auth);
-            break;
-        } catch (e: any) {
-            retries--;
-            if (retries === 0) throw e;
-            console.warn(`Connection failed, retrying in 5s... (${retries} left). Error: ${e.message}`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+    try {
+        browser = await connectToBrowserless();
+    } catch (e: any) {
+        return { success: false, error: `CONNECTION_FAILED: ${e.message}` };
     }
-    
-    if (!browser) throw new Error('Failed to connect to Browserless after retries.');
     
     const context = await browser.newContext({
         userAgent,
@@ -193,6 +161,7 @@ export async function runLinkedInOutreach(
         await page.screenshot({ path: screenshotPath }).catch(() => {});
         return { success: false, error: error.message, screenshot: screenshotPath };
     } finally {
-        await context.close();
+        await context.close().catch(() => {});
+        if (browser) await browser.close().catch(() => {});
     }
 }

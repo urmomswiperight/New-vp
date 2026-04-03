@@ -1,11 +1,19 @@
 {
-  "name": "LinkedIn Outreach API v4",
+  "name": "MASTER: LinkedIn Sales Machine (V4)",
   "nodes": [
     {
-      "parameters": {},
-      "id": "manual-trigger",
-      "name": "When clicking \"Execute Workflow\"",
-      "type": "n8n-nodes-base.manualTrigger",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-daily-outreach",
+      "name": "9AM: Start Outreach",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [
         100,
@@ -14,113 +22,194 @@
     },
     {
       "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "trigger-inbox-check",
+      "name": "Every 2 Hours: Check Inbox",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "trigger-nudge",
+      "name": "10AM: 3-Day Nudge",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "New"
+            },
+            {
+              "key": "linkedinUrl",
+              "operation": "notEmpty"
+            }
+          ]
+        },
+        "limit": 25
+      },
+      "id": "get-new-leads",
+      "name": "Fetch 25 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        300,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "url": "={{ $vars[\"API_BASE_URL\"] }}/api/linkedin/outreach",
+        "url": "https://your-vercel-url.com/api/linkedin/outreach",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-Outreach-Secret",
-              "value": "={{ $vars[\"OUTREACH_SECRET\"] }}"
+              "value": "YOUR_SECRET_PASSWORD"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"profileUrl\": \"https://www.linkedin.com/in/test-profile/\",\n  \"message\": \"SCROLL_AND_SCRAPE\"\n}",
+        "jsonBody": "={\n  \"profileUrl\": \"{{ $json.linkedinUrl }}\",\n  \"message\": \"Hi {{ $json.firstName }}, saw your work at {{ $json.company }} and thought our AI automation would be a game-changer for you.\"\n}",
         "options": {}
       },
-      "id": "http-request",
-      "name": "HTTP Request",
+      "id": "call-outreach-api",
+      "name": "API: Send Connection",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        350,
+        550,
         100
       ]
     },
     {
       "parameters": {
-        "conditions": {
-          "boolean": [
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/check-inbox",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "value1": "={{ $json.success }}",
-              "value2": true
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
             }
           ]
-        }
+        },
+        "options": {}
       },
-      "id": "check-success",
-      "name": "Check Success",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "id": "call-inbox-api",
+      "name": "API: Scan Replies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
       "position": [
-        600,
-        100
+        300,
+        300
       ]
     },
     {
       "parameters": {
-        "content": "### Outreach Successful\nAPI returned success: true"
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/follow-up",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"Hi [Name], following up on my last message. If you want to own your outreach infra for $0/mo, check it here: https://robelseife.gumroad.com/l/Fullmarketing\",\n  \"daysDelay\": 3\n}",
+        "options": {}
       },
-      "id": "sticky-note-success",
-      "name": "Sticky Note",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
+      "id": "call-nudge-api",
+      "name": "API: Send Nudge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
       "position": [
-        850,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "content": "### Outreach Failed\nCheck API logs for details"
-      },
-      "id": "sticky-note-failure",
-      "name": "Sticky Note1",
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        850,
-        200
+        300,
+        500
       ]
     }
   ],
   "connections": {
-    "When clicking \"Execute Workflow\"": {
+    "9AM: Start Outreach": {
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Fetch 25 Leads",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "HTTP Request": {
+    "Fetch 25 Leads": {
       "main": [
         [
           {
-            "node": "Check Success",
+            "node": "API: Send Connection",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check Success": {
+    "Every 2 Hours: Check Inbox": {
       "main": [
         [
           {
-            "node": "Sticky Note",
+            "node": "API: Scan Replies",
             "type": "main",
             "index": 0
           }
-        ],
+        ]
+      ]
+    },
+    "10AM: 3-Day Nudge": {
+      "main": [
         [
           {
-            "node": "Sticky Note1",
+            "node": "API: Send Nudge",
             "type": "main",
             "index": 0
           }
@@ -132,5 +221,5 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "hash": "linkedin-v4-api"
+  "hash": "master-linkedin-suite-v4"
 }

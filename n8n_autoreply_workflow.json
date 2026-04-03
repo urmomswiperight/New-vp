@@ -1,5 +1,5 @@
 {
-  "name": "Auto-Reply Engine",
+  "name": "MASTER: AI Auto-Reply Engine (671B)",
   "nodes": [
     {
       "parameters": {
@@ -9,12 +9,12 @@
           "customFilters": "UNSEEN"
         }
       },
-      "id": "i1m2a3p4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "id": "imap-trigger",
       "name": "IMAP Email Trigger",
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 1,
       "position": [
-        250,
+        100,
         300
       ],
       "credentials": {
@@ -38,12 +38,12 @@
         },
         "limit": 1
       },
-      "id": "s1u2p3a4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "id": "find-lead",
       "name": "Find Lead in DB",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        450,
+        300,
         300
       ],
       "credentials": {
@@ -55,62 +55,51 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "boolean": [
+        "method": "POST",
+        "url": "https://judgeable-pearly-actinally.ngrok-free.dev/api/chat",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
             {
-              "value1": "={{ !!$json.id }}",
-              "value2": true
+              "name": "model",
+              "value": "deepseek-v3.1:671b-cloud"
+            },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"system\", \"content\": \"You are Robel, an AI Automation Expert (Computer Science & Data Science background). Reply to this lead. Tone: High-authority builder, technically sound, simple, no jargon. Goal: Suggest 15-min call if interested. CTA Links: https://robelseife.gumroad.com/l/Fullmarketing or https://calendar.app.google/Q3CwDJhR33qo2EhZ6. Max 60 words.\" }, { \"role\": \"user\", \"content\": \"Lead Name: {{ $node[\\\"Find Lead in DB\\\"].json.firstName }}. Lead Message: {{ $node[\\\"IMAP Email Trigger\\\"].json.text }}\" }]"
+            },
+            {
+              "name": "stream",
+              "value": false
             }
           ]
-        }
-      },
-      "id": "i1f2_3_4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "Is Lead Known?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        650,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "model": "gpt-4o",
-        "prompt": "=You are Robel, an AI Automation Expert. A lead just replied to your cold email.\n\nLEAD INFO:\n- Name: {{ $node[\"Find Lead in DB\"].json.firstName }}\n- Company: {{ $node[\"Find Lead in DB\"].json.company }}\n- Original Message from Lead: {{ $node[\"IMAP Email Trigger\"].json.text }}\n\nYOUR GOAL:\n- You are Robel, a dual-background Computer Science & Data Science expert specializing in LLM fine-tuning and RAG systems.\n- Reply in a natural, high-authority tone. You are a builder, not a salesman.\n- If they asked a question, provide a technically sound but simple answer.\n- If they are interested, suggest a quick 15-minute discovery call (Limited 1-week offer).\n- Mention you build systems that replace expensive $200-$400/mo SaaS stacks with $0/mo self-hosted infra.\n- Tone: Senior Engineer who understands ROI. No corporate jargon.\n- Keep it under 60 words.\n\nREPLY AS ROBEL:",
+        },
         "options": {}
       },
-      "id": "a1i2_3_4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "AI Auto-Reply Generator",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1,
+      "id": "ai-generator",
+      "name": "DeepSeek 671B Generator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
       "position": [
-        850,
-        200
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "OpenAI-Credential-ID",
-          "name": "OpenAI"
-        }
-      }
+        500,
+        300
+      ]
     },
     {
       "parameters": {
         "fromEmail": "your-email@example.com",
         "toEmail": "={{ $node[\"IMAP Email Trigger\"].json.from.address }}",
         "subject": "=Re: {{ $node[\"IMAP Email Trigger\"].json.subject }}",
-        "html": "=<html><body><p>Hi {{ $node[\"Find Lead in DB\"].json.firstName }},</p><p>{{ $json.choices[0].message.content }}</p><p>Best,<br>Robel</p></body></html>",
-        "options": {
-          "appendAttachement": false
-        }
+        "html": "=<html><body><p>Hi {{ $node[\"Find Lead in DB\"].json.firstName }},</p><p>{{ $json.message.content }}</p><p>Best,<br>Robel</p></body></html>",
+        "options": {}
       },
-      "id": "s1e2n3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "Send Personalized Reply",
+      "id": "send-email",
+      "name": "Send Reply",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 1,
       "position": [
-        1050,
-        200
+        700,
+        300
       ],
       "credentials": {
         "smtp": {
@@ -135,13 +124,13 @@
           "status": "Replied"
         }
       },
-      "id": "u1p2d3a4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "name": "Update Status to Replied",
+      "id": "update-status",
+      "name": "Update DB",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1250,
-        200
+        900,
+        300
       ],
       "credentials": {
         "supabaseApi": {
@@ -167,40 +156,29 @@
       "main": [
         [
           {
-            "node": "Is Lead Known?",
+            "node": "DeepSeek 671B Generator",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Is Lead Known?": {
+    "DeepSeek 671B Generator": {
       "main": [
         [
           {
-            "node": "AI Auto-Reply Generator",
+            "node": "Send Reply",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Auto-Reply Generator": {
+    "Send Reply": {
       "main": [
         [
           {
-            "node": "Send Personalized Reply",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Personalized Reply": {
-      "main": [
-        [
-          {
-            "node": "Update Status to Replied",
+            "node": "Update DB",
             "type": "main",
             "index": 0
           }
@@ -210,5 +188,5 @@
   },
   "active": false,
   "settings": {},
-  "hash": "auto-reply-engine-v1"
+  "hash": "master-autoreply-v1"
 }

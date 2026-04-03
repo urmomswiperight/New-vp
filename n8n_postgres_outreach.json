@@ -65,7 +65,7 @@
           "parameters": [
             {
               "name": "model",
-              "value": "llama3.1"
+              "value": "deepseek-v3.1:671b-cloud"
             },
             {
               "name": "prompt",

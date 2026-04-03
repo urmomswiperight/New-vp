@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import prisma from '@/lib/prisma';
+import { connectToBrowserless } from '@/lib/browser';
 
 export interface FollowUpResult {
     success: boolean;
@@ -13,21 +14,10 @@ export async function runLinkedInFollowUp(
     message: string,
     daysDelay: number = 3
 ): Promise<FollowUpResult> {
-    // 1. Setup imports (Vercel compatibility)
-    const { chromium: baseChromium } = await import('playwright-core');
-    const { addExtra } = await import('playwright-extra');
-    const { default: StealthPlugin } = await import('puppeteer-extra-plugin-stealth');
-    
-    const chromium = addExtra(baseChromium);
-    try { chromium.use(StealthPlugin()); } catch (e) {}
-
     const isVercel = process.env.VERCEL === '1';
     const baseDir = isVercel ? os.tmpdir() : process.cwd();
     const userDataDir = path.join(baseDir, '.playwright-sessions');
     if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
-
-    const auth = process.env.BROWSERLESS_WSS;
-    if (!auth) throw new Error('BROWSERLESS_WSS is not defined.');
 
     // 2. Fetch Leads eligible for follow-up
     const cutoffDate = new Date();
@@ -47,22 +37,13 @@ export async function runLinkedInFollowUp(
 
     console.log(`Follow-Up: Found ${eligibleLeads.length} leads to nudge.`);
     
-    console.log('Follow-Up: Connecting to Browserless.io...');
+    console.log('Follow-Up: Attempting connection...');
     let browser;
-    let retries = 3;
-    while (retries > 0) {
-        try {
-            browser = await chromium.connectOverCDP(auth);
-            break;
-        } catch (e: any) {
-            retries--;
-            if (retries === 0) throw e;
-            console.warn(`Follow-Up: Connection failed, retrying in 5s... (${retries} left). Error: ${e.message}`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+    try {
+        browser = await connectToBrowserless();
+    } catch (e: any) {
+        return { success: false, sentLeads: [], error: `CONNECTION_FAILED: ${e.message}` };
     }
-    
-    if (!browser) throw new Error('Failed to connect to Browserless after retries.');
     
     const sentLeads: string[] = [];
 
@@ -85,7 +66,6 @@ export async function runLinkedInFollowUp(
                     await page.waitForTimeout(2000);
 
                     // Type follow-up message
-                    // Note: LinkedIn messaging UI can vary, this targets the standard pop-up
                     const editor = await page.waitForSelector('.msg-form__contenteditable[role="textbox"]', { timeout: 10000 });
                     if (editor) {
                         const personalizedMessage = message.replace(/\[Name\]/g, lead.firstName || 'there');
@@ -108,7 +88,7 @@ export async function runLinkedInFollowUp(
             } catch (err) {
                 console.error(`Follow-Up: Failed for ${lead.firstName}:`, err);
             } finally {
-                await context.close();
+                await context.close().catch(() => {});
             }
         }
 
@@ -118,6 +98,6 @@ export async function runLinkedInFollowUp(
         console.error('Follow-Up Fatal Error:', error);
         return { success: false, sentLeads: [], error: error.message };
     } finally {
-        await browser.close();
+        if (browser) await browser.close().catch(() => {});
     }
 }

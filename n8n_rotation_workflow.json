@@ -55,9 +55,9 @@
       "parameters": {
         "method": "POST",\n        "url": "http://localhost:11434/api/chat",\n        "sendBody": true,\n        "bodyParameters": {\n          "parameters": [
             {
-              "name": "model",\n              "value": "deepseek-v2"
-            },
-            {
+              "name": "model",
+              "value": "deepseek-v3.1:671b-cloud"
+            }
               "name": "messages",\n              "value": "=[{ \"role\": \"user\", \"content\": \"Write a very short (1 sentence) professional icebreaker for {{ $node[\\\"Get New Leads\\\"].json.firstName }} who works at {{ $node[\\\"Get New Leads\\\"].json.company }}. No generic filler.\" }]"
             },
             {

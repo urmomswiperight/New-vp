@@ -1,0 +1,69 @@
+{
+  "name": "LinkedIn Automated Follow-up (Nudge)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Morning at 10AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/follow-up",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"Hi [Name], I noticed you accepted my request but haven't had a chance to reply. If you're interested in the 5,000 leads/mo engine, you can check it here: https://robelseife.gumroad.com/l/Fullmarketing or grab a time on my cal: https://calendar.app.google/Q3CwDJhR33qo2EhZ6\",\n  \"daysDelay\": 3\n}",
+        "options": {}
+      },
+      "id": "http-request-followup",
+      "name": "Trigger Vercel Follow-up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        350,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every Morning at 10AM": {
+      "main": [
+        [
+          {
+            "node": "Trigger Vercel Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "hash": "linkedin-followup-v1"
+}

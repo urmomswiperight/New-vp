@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import prisma from '@/lib/prisma';
+import { connectToBrowserless } from '@/lib/browser';
 
 export interface InboxCheckResult {
     success: boolean;
@@ -10,42 +11,18 @@ export interface InboxCheckResult {
 }
 
 export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
-    // 1. Setup imports (same as outreach for Vercel compatibility)
-    const { chromium: baseChromium } = await import('playwright-core');
-    const { addExtra } = await import('playwright-extra');
-    const { default: StealthPlugin } = await import('puppeteer-extra-plugin-stealth');
-    
-    const chromium = addExtra(baseChromium);
-    try { chromium.use(StealthPlugin()); } catch (e) {}
-
     const isVercel = process.env.VERCEL === '1';
     const baseDir = isVercel ? os.tmpdir() : process.cwd();
     const userDataDir = path.join(baseDir, '.playwright-sessions');
     if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
 
-    const auth = process.env.BROWSERLESS_WSS;
-    if (!auth) throw new Error('BROWSERLESS_WSS is not defined.');
-
-    if (!auth.includes('token=')) {
-        console.warn('WARNING: BROWSERLESS_WSS does not contain a ?token=... parameter. This will cause 429 errors.');
-    }
-
-    console.log('Inbox Check: Connecting to Browserless.io...');
+    console.log('Inbox Check: Attempting connection...');
     let browser;
-    let retries = 3;
-    while (retries > 0) {
-        try {
-            browser = await chromium.connectOverCDP(auth);
-            break;
-        } catch (e: any) {
-            retries--;
-            if (retries === 0) throw e;
-            console.warn(`Inbox Check: Connection failed, retrying in 5s... (${retries} left). Error: ${e.message}`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-        }
+    try {
+        browser = await connectToBrowserless();
+    } catch (e: any) {
+        return { success: false, repliedLeads: [], error: `CONNECTION_FAILED: ${e.message}` };
     }
-    
-    if (!browser) throw new Error('Failed to connect to Browserless after retries.');
     
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -110,6 +87,7 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
         console.error('Inbox Check Fatal Error:', error);
         return { success: false, repliedLeads: [], error: error.message };
     } finally {
-        await context.close();
+        await context.close().catch(() => {});
+        if (browser) await browser.close().catch(() => {});
     }
 }

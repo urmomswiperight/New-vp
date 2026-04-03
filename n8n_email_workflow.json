@@ -1,5 +1,5 @@
 {
-  "name": "Outreach Engine (Agentic v5)",
+  "name": "MASTER: ManyReach Email Engine (671B)",
   "nodes": [
     {
       "parameters": {
@@ -11,68 +11,29 @@
           ]
         }
       },
-      "id": "schedule-trigger-id",
-      "name": "Daily Outreach Start",
+      "id": "schedule-outreach",
+      "name": "9AM: Start Batch",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        300
+        100,
+        100
       ]
     },
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "outreach-trigger",
-        "authentication": "headerAuth",
+        "path": "manyreach-webhook",
         "options": {}
       },
-      "id": "webhook-trigger-id",
-      "name": "Manual Trigger Webhook",
+      "id": "reply-webhook",
+      "name": "Webhook: ManyReach Reply",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
-        0,
-        500
-      ],
-      "credentials": {
-        "headerAuth": {
-          "id": "X-API-KEY-Credential-ID",
-          "name": "Outreach API Key"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "table": "Campaign",
-        "filters": {
-          "conditions": [
-            {
-              "key": "status",
-              "value": "Active"
-            },
-            {
-              "key": "type",
-              "value": "Email"
-            }
-          ]
-        }
-      },
-      "id": "get-active-campaigns",
-      "name": "Get Active Campaigns",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        200,
+        100,
         400
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "Supabase-Credential-ID",
-          "name": "Supabase"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -81,24 +42,24 @@
         "filters": {
           "conditions": [
             {
-              "key": "userId",
-              "value": "={{ $json.userId }}"
-            },
-            {
               "key": "status",
               "value": "New"
+            },
+            {
+              "key": "email",
+              "operation": "notEmpty"
             }
           ]
         },
         "limit": 50
       },
-      "id": "get-new-leads",
-      "name": "Get 50 New Leads",
+      "id": "get-leads",
+      "name": "Fetch 50 Leads",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        400,
-        400
+        300,
+        100
       ],
       "credentials": {
         "supabaseApi": {
@@ -109,79 +70,62 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=https://api.firecrawl.dev/v1/scrape?url={{ $json.linkedinUrl || 'https://' + $json.company + '.com' }}",
-        "authentication": "headerAuth",
+        "method": "POST",
+        "url": "https://judgeable-pearly-actinally.ngrok-free.dev/api/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "deepseek-v3.1:671b-cloud"
+            },
+            {
+              "name": "prompt",
+              "value": "=Write a personalized 1-sentence icebreaker for {{ $json.firstName }} at {{ $json.company }}. No filler. Focus on AI growth."
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "research-node",
-      "name": "Research Lead/Company",
+      "id": "ai-personalize",
+      "name": "DeepSeek 671B Personalize",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        600,
-        400
-      ],
-      "credentials": {
-        "headerAuth": {
-          "id": "Firecrawl-API-Key",
-          "name": "Firecrawl API"
-        }
-      }
+        500,
+        100
+      ]
     },
     {
       "parameters": {
-        "model": "gpt-4o",
-        "prompt": "=Analyze this lead and company data:\nNAME: {{ $node[\"Get 50 New Leads\"].json.firstName }} {{ $node[\"Get 50 New Leads\"].json.lastName }}\nCOMPANY: {{ $node[\"Get 50 New Leads\"].json.company }}\nRESEARCH: {{ $json.data }}\n\nGOAL: Rebuild the outreach automation to be more 'Agentic' and 'Resultful'.\n\nTASKS:\n1. Score this lead (0-100) based on potential interest in AI automation.\n2. Choose the best 'Angle' (A: Efficiency/Technical or B: Human/Benefit).\n3. Draft a ultra-personalized 1-sentence icebreaker.\n4. Draft a full cold email body (max 100 words).\n\nOUTPUT JSON:\n{\n  \"score\": number,\n  \"angle\": \"A\" | \"B\",\n  \"icebreaker\": \"string\",\n  \"emailBody\": \"string\",\n  \"reasoning\": \"string\"\n}",
-        "options": {
-          "responseFormat": "json_object"
-        }
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/email/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"campaignId\": \"YOUR_MANYREACH_ID\",\n  \"email\": \"{{ $node[\"Fetch 50 Leads\"].json.email }}\",\n  \"firstName\": \"{{ $node[\"Fetch 50 Leads\"].json.firstName }}\",\n  \"lastName\": \"{{ $node[\"Fetch 50 Leads\"].json.lastName }}\",\n  \"company\": \"{{ $node[\"Fetch 50 Leads\"].json.company }}\",\n  \"icebreaker\": \"{{ $json.response }}\"\n}",
+        "options": {}
       },
-      "id": "agentic-reasoning",
-      "name": "Agentic Reasoning & Draft",
-      "type": "n8n-nodes-base.openAi",
-      "typeVersion": 1,
+      "id": "push-to-manyreach",
+      "name": "API: Push to ManyReach",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
       "position": [
-        800,
-        400
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "OpenAI-Credential-ID",
-          "name": "OpenAI"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "INSERT",
-        "table": "LeadDraft",
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "leadId": "={{ $node[\"Get 50 New Leads\"].json.id }}",
-            "campaignId": "={{ $node[\"Get Active Campaigns\"].json.id }}",
-            "content": "={{ $json.emailBody }}",
-            "subject": "=Quick question for {{ $node[\"Get 50 New Leads\"].json.firstName }} @ {{ $node[\"Get 50 New Leads\"].json.company }}",
-            "status": "Pending",
-            "reasoning": "={{ JSON.stringify({ score: $json.score, angle: $json.angle, logic: $json.reasoning }) }}"
-          }
-        }
-      },
-      "id": "save-draft",
-      "name": "Save Draft (HITL)",
-      "type": "n8n-nodes-base.supabase",
-      "typeVersion": 1,
-      "position": [
-        1000,
-        400
-      ],
-      "credentials": {
-        "supabaseApi": {
-          "id": "Supabase-Credential-ID",
-          "name": "Supabase"
-        }
-      }
+        700,
+        100
+      ]
     },
     {
       "parameters": {
@@ -191,21 +135,71 @@
           "conditions": [
             {
               "key": "id",
-              "value": "={{ $node[\"Get 50 New Leads\"].json.id }}"
+              "value": "={{ $node[\"Fetch 50 Leads\"].json.id }}"
             }
           ]
         },
         "updateFields": {
-          "status": "Pending Approval",
-          "variant": "={{ $node[\"Agentic Reasoning & Draft\"].json.angle }}"
+          "status": "Contacted (ManyReach)"
         }
       },
-      "id": "update-lead-status",
-      "name": "Mark Pending Approval",
+      "id": "update-db-contacted",
+      "name": "Update DB: Contacted",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        1200,
+        900,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.event }}",
+              "value2": "prospect.replied"
+            }
+          ]
+        }
+      },
+      "id": "check-reply-event",
+      "name": "Is Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "email",
+              "value": "={{ $json.body.data.prospect.email }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "status": "Replied"
+        }
+      },
+      "id": "update-db-replied",
+      "name": "Update DB: Replied",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
         400
       ],
       "credentials": {
@@ -217,77 +211,66 @@
     }
   ],
   "connections": {
-    "Daily Outreach Start": {
+    "9AM: Start Batch": {
       "main": [
         [
           {
-            "node": "Get Active Campaigns",
+            "node": "Fetch 50 Leads",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Manual Trigger Webhook": {
+    "Fetch 50 Leads": {
       "main": [
         [
           {
-            "node": "Get Active Campaigns",
+            "node": "DeepSeek 671B Personalize",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Active Campaigns": {
+    "DeepSeek 671B Personalize": {
       "main": [
         [
           {
-            "node": "Get 50 New Leads",
+            "node": "push-to-manyreach",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get 50 New Leads": {
+    "push-to-manyreach": {
       "main": [
         [
           {
-            "node": "Research Lead/Company",
+            "node": "Update DB: Contacted",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Research Lead/Company": {
+    "Webhook: ManyReach Reply": {
       "main": [
         [
           {
-            "node": "Agentic Reasoning & Draft",
+            "node": "Is Reply?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Agentic Reasoning & Draft": {
+    "Is Reply?": {
       "main": [
         [
           {
-            "node": "Save Draft (HITL)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Save Draft (HITL)": {
-      "main": [
-        [
-          {
-            "node": "Mark Pending Approval",
+            "node": "Update DB: Replied",
             "type": "main",
             "index": 0
           }
@@ -295,7 +278,7 @@
       ]
     }
   },
-  "active": true,
+  "active": false,
   "settings": {},
-  "hash": "agentic-outreach-v5-scaled"
+  "hash": "master-manyreach-v1"
 }
