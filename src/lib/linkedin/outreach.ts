@@ -76,16 +76,34 @@ export async function runLinkedInOutreach(
         }
 
         // 4. Navigation & Profile Load
-        console.log(`LinkedIn Outreach: Navigating to ${profileUrl}...`);
-        await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await page.waitForTimeout(3000 + Math.random() * 2000);
+        const cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
+        console.log(`LinkedIn Outreach: Navigating to ${cleanUrl}...`);
+        
+        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForTimeout(4000 + Math.random() * 2000);
 
-        // Robust check for profile name
+        // Robust check for profile loading
         const nameHeader = await page.getByRole('heading', { level: 1 }).filter({ hasText: /[a-zA-Z]/ }).first();
-        const profileLoaded = await nameHeader.isVisible().catch(() => false) || await page.$('.text-heading-xlarge');
+        const profileLoaded = await nameHeader.isVisible().catch(() => false) || 
+                              await page.$('.text-heading-xlarge') ||
+                              await page.$('button:has-text("Connect")') ||
+                              await page.$('button:has-text("Message")');
         
         if (!profileLoaded) {
-            throw new Error('PROFILE_NOT_LOADED: LinkedIn may be showing an authwall or the profile is private.');
+            const currentUrl = page.url();
+            const pageTitle = await page.title();
+            console.error(`PROFILE_NOT_LOADED: Failed on ${currentUrl}. Title: ${pageTitle}`);
+            
+            // Capture screenshot for debugging
+            await page.screenshot({ path: screenshotPath });
+            
+            if (currentUrl.includes('authwall') || pageTitle.includes('Login')) {
+                throw new Error('PROFILE_NOT_LOADED: LinkedIn redirected to an AuthWall. Your session (LI_SESSION) might be expired.');
+            }
+            if (currentUrl.includes('unavailable') || pageTitle.includes('Page not found')) {
+                throw new Error('PROFILE_NOT_LOADED: The profile is unavailable or the URL is incorrect.');
+            }
+            throw new Error(`PROFILE_NOT_LOADED: Profile elements not found. Check ${screenshotPath} in logs.`);
         }
 
         // 5. Connection Logic

@@ -52,7 +52,13 @@
 - [x] LinkedIn Outreach API Wrapper (Plan 02).
 - [x] n8n Cloud Integration & Verification (Plan 03).
 
+## Phase 8: LinkedIn Auth Stability & Resiliency (PLANNED)
+- [ ] Session Injection & Health Utility (Plan 01).
+- [ ] Upgrade LinkedIn Workflows (Plan 02).
+- [ ] Documentation & Final Verification (Plan 03).
+
 ### Next Steps:
+- Execute Phase 08 to resolve persistent LinkedIn auth issues.
 - Monitor API stability and stealth effectiveness in the production environment.
 - Consider implementing multi-account rotation for increased LinkedIn throughput.
 - Evaluate the need for advanced CAPTCHA solving based on production performance.

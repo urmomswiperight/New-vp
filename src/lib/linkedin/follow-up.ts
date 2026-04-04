@@ -64,18 +64,26 @@ export async function runLinkedInFollowUp(
                     throw new Error('SESSION_INVALID: Please update your LI_SESSION.');
                 }
 
-                console.log(`Follow-Up: Navigating to ${lead.firstName} (${lead.linkedinUrl})`);
-                await page.goto(lead.linkedinUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                const cleanUrl = lead.linkedinUrl.split('?')[0].replace(/\/$/, '');
+                console.log(`Follow-Up: Navigating to ${lead.firstName} (${cleanUrl})`);
+                await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
                 await page.waitForTimeout(4000);
 
-                // Check for AuthWall
-                if (await page.$('.authwall-container')) {
-                    throw new Error('AUTHWALL: Session invalid or blocked.');
-                }
-
-                // Verify profile loaded
+                // Robust check for profile loading
                 const nameHeader = await page.getByRole('heading', { level: 1 }).filter({ hasText: /[a-zA-Z]/ }).first();
-                if (!await nameHeader.isVisible()) {
+                const profileLoaded = await nameHeader.isVisible().catch(() => false) || 
+                                      await page.$('.text-heading-xlarge') ||
+                                      await page.$('button:has-text("Message")') ||
+                                      await page.$('button:has-text("Connect")');
+                
+                if (!profileLoaded) {
+                    const currentUrl = page.url();
+                    const pageTitle = await page.title();
+                    console.error(`PROFILE_NOT_LOADED: Follow-up failed on ${currentUrl}. Title: ${pageTitle}`);
+                    
+                    if (currentUrl.includes('authwall') || pageTitle.includes('Login')) {
+                        throw new Error('PROFILE_NOT_LOADED: Authwall or Login detected. Check your LI_SESSION.');
+                    }
                     throw new Error('PROFILE_NOT_LOADED');
                 }
 

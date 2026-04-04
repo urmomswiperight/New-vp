@@ -65,79 +65,95 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
  */
 export async function injectLinkedInAuth(context: BrowserContext) {
     const liSession = process.env.LI_SESSION;
-    const liAt = process.env.LI_AT;
     
     if (liSession) {
         try {
-            console.log('Injecting full LinkedIn session from LI_SESSION JSON...');
+            console.log('LinkedIn Auth: Parsing LI_SESSION...');
             const state = JSON.parse(liSession);
-            // Storage state contains { cookies, origins }
-            if (state.cookies) {
-                await context.addCookies(state.cookies);
+            let rawCookies = Array.isArray(state) ? state : (state.cookies || []);
+
+            if (rawCookies.length > 0) {
+                // Clean cookies: Playwright is very strict about the schema
+                const cleanCookies = rawCookies.map((c: any) => {
+                    // Extract only the fields Playwright supports
+                    const cookie: any = {
+                        name: String(c.name),
+                        value: String(c.value),
+                        domain: c.domain?.startsWith('.') ? c.domain : `.${c.domain || 'www.linkedin.com'}`,
+                        path: c.path || '/',
+                        httpOnly: c.httpOnly ?? true,
+                        secure: c.secure ?? true,
+                        sameSite: c.sameSite || 'None'
+                    };
+                    
+                    // Convert expiration if present
+                    if (c.expirationDate) cookie.expires = c.expirationDate;
+                    else if (c.expires) cookie.expires = c.expires;
+
+                    return cookie;
+                });
+
+                await context.addCookies(cleanCookies);
+                console.log(`✅ LI_SESSION: Injected ${cleanCookies.length} cookies.`);
+                return;
             }
-            // For origins (localStorage), we can't easily inject them into a fresh context 
-            // without a page, but cookies are usually sufficient for LinkedIn.
-            console.log(`Successfully injected ${state.cookies?.length || 0} cookies.`);
-            return;
         } catch (e: any) {
-            console.error('Failed to parse LI_SESSION JSON:', e.message);
+            console.error('❌ LI_SESSION: Failed to parse JSON:', e.message);
         }
     }
 
+    const liAt = process.env.LI_AT;
     if (liAt) {
-        console.log('Injecting LI_AT cookie (Legacy Mode)...');
-        await context.addCookies([
-            {
-                name: 'li_at',
-                value: liAt,
-                domain: '.www.linkedin.com',
-                path: '/',
-                httpOnly: true,
-                secure: true,
-                sameSite: 'None'
-            }
-        ]);
+        console.log('LinkedIn Auth: Using LI_AT (Legacy)...');
+        await context.addCookies([{
+            name: 'li_at',
+            value: liAt,
+            domain: '.www.linkedin.com',
+            path: '/',
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None'
+        }]);
     } else {
-        console.warn('WARNING: Neither LI_SESSION nor LI_AT environment variables are set. LinkedIn will likely show an authwall/login screen.');
+        console.warn('⚠️ No LinkedIn session found in environment variables.');
     }
 }
 
 /**
  * Verifies if the current page is logged into LinkedIn.
- * Visits the feed and checks for common UI elements.
  */
 export async function checkSessionHealth(page: Page): Promise<boolean> {
     try {
-        console.log('Checking session health (Navigating to LinkedIn feed)...');
-        // Faster load by waiting only for DOM
+        console.log('LinkedIn Health: Checking login state...');
         await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 30000 });
         
-        // Wait for elements that only appear when logged in
-        const loggedIn = await page.waitForSelector([
+        // Check for specific logged-in markers
+        const markers = [
             '.feed-identity-module',
             '.global-nav__me-photo',
-            'button[aria-label="Account Menu"]',
-            '.search-global-typeahead'
-        ].join(','), { timeout: 10000 }).catch(() => null);
+            '.search-global-typeahead',
+            'button[aria-label="Account Menu"]'
+        ];
 
-        if (loggedIn) {
-            console.log('✅ Session is healthy (Logged in).');
-            return true;
+        for (const selector of markers) {
+            const el = await page.$(selector);
+            if (el) {
+                console.log(`✅ LinkedIn Health: Found marker (${selector}). Logged in.`);
+                return true;
+            }
         }
 
-        // Check for common indicators of not being logged in
-        const loginForm = await page.$('form.login__form, input[name="session_key"], a[href*="login"]');
-        if (loginForm) {
-            console.warn('❌ Session EXPIRED: LinkedIn is showing the login form.');
-        } else if (await page.$('.authwall-container')) {
-            console.warn('❌ Session BLOCKED: LinkedIn is showing an authwall.');
+        // If markers fail, check for negative indicators
+        const html = await page.content();
+        if (html.includes('authwall') || html.includes('login__form')) {
+            console.error('❌ LinkedIn Health: Logged out (Authwall/Login form detected).');
         } else {
-            console.warn('❓ Session Status UNKNOWN: Taking screenshot for debugging.');
+            console.error('❌ LinkedIn Health: Unknown state (Markers not found).');
         }
 
         return false;
     } catch (e: any) {
-        console.error('Error during session health check:', e.message);
+        console.error('❌ LinkedIn Health: Error during check:', e.message);
         return false;
     }
 }
