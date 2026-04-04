@@ -73,36 +73,46 @@ export async function injectLinkedInAuth(context: BrowserContext) {
             let rawCookies = Array.isArray(state) ? state : (state.cookies || []);
 
             if (rawCookies.length > 0) {
-                // Clean cookies: Playwright is very strict about the schema
+                console.log(`LinkedIn Auth: Processing ${rawCookies.length} cookies...`);
                 const cleanCookies = rawCookies.map((c: any) => {
-                    // Extract only the fields Playwright supports
+                    // Normalize SameSite to exactly what Playwright expects
+                    let sameSite: "Strict" | "Lax" | "None" = "None";
+                    const rawSameSite = String(c.sameSite || '').toLowerCase();
+                    if (rawSameSite === 'strict') sameSite = 'Strict';
+                    else if (rawSameSite === 'lax') sameSite = 'Lax';
+                    else sameSite = 'None';
+
                     const cookie: any = {
                         name: String(c.name),
                         value: String(c.value),
                         domain: c.domain?.startsWith('.') ? c.domain : `.${c.domain || 'www.linkedin.com'}`,
                         path: c.path || '/',
-                        httpOnly: c.httpOnly ?? true,
-                        secure: c.secure ?? true,
-                        sameSite: c.sameSite || 'None'
+                        httpOnly: !!(c.httpOnly ?? true),
+                        secure: !!(c.secure ?? true),
+                        sameSite: sameSite
                     };
                     
-                    // Convert expiration if present
                     if (c.expirationDate) cookie.expires = c.expirationDate;
                     else if (c.expires) cookie.expires = c.expires;
 
                     return cookie;
                 });
 
-                await context.addCookies(cleanCookies);
-                const cookieNames = cleanCookies.map((c: any) => c.name);
-                console.log(`✅ LI_SESSION: Injected ${cleanCookies.length} cookies: ${cookieNames.join(', ')}`);
-                
-                if (!cookieNames.includes('li_at')) {
-                    console.warn('⚠️ LI_SESSION: "li_at" cookie is missing. This will likely cause login failure.');
+                // Inject cookies one by one to be resilient to individual failures
+                let successCount = 0;
+                for (const cookie of cleanCookies) {
+                    try {
+                        await context.addCookies([cookie]);
+                        successCount++;
+                    } catch (err: any) {
+                        // Silently skip problematic cookies (usually non-essential ones)
+                        if (cookie.name === 'li_at') {
+                            console.error(`❌ Critical cookie "li_at" failed: ${err.message}`);
+                        }
+                    }
                 }
-                if (!cookieNames.includes('JSESSIONID')) {
-                    console.warn('⚠️ LI_SESSION: "JSESSIONID" cookie is missing. This may cause CSRF issues.');
-                }
+
+                console.log(`✅ LI_SESSION: Successfully injected ${successCount}/${cleanCookies.length} cookies.`);
                 return;
             }
         } catch (e: any) {
