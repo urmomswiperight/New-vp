@@ -35,7 +35,7 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
     try {
         const isHealthy = await checkSessionHealth(page);
         if (!isHealthy) {
-            throw new Error('SESSION_INVALID: Please update your LI_SESSION.');
+            console.warn('⚠️ LinkedIn Health: Session verification failed for inbox check, but proceeding anyway...');
         }
 
         // 2. Navigate to LinkedIn Messaging

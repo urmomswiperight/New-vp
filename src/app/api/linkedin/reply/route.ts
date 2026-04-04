@@ -20,6 +20,11 @@ export async function POST(req: Request) {
         await injectLinkedInAuth(context);
         const page = await context.newPage();
 
+        const isHealthy = await checkSessionHealth(page);
+        if (!isHealthy) {
+            console.warn('⚠️ LinkedIn Health: Verification failed for reply, but proceeding anyway...');
+        }
+
         console.log(`LinkedIn Reply: Navigating to thread ${threadUrl}...`);
         await page.goto(threadUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForTimeout(3000);
