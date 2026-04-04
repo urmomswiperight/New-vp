@@ -52,6 +52,17 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       const errorText = await response.text();
+      
+      // Handle 409 Conflict (Lead already exists in ManyReach)
+      if (response.status === 409) {
+        console.log(`[${requestId}] ManyReach API: Lead ${email} already exists. Continuing...`);
+        return NextResponse.json({ 
+          success: true, 
+          status: 'Already Exists',
+          details: 'Prospect already exists in ManyReach' 
+        });
+      }
+
       console.error(`[${requestId}] ManyReach API Error:`, response.status, errorText);
       return NextResponse.json({ 
         success: false, 
