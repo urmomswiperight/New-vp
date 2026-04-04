@@ -1,0 +1,171 @@
+{
+  "name": "MASTER: LinkedIn Warm Machine (V1)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "trigger-inbox-scan",
+      "name": "Every 2 Hours: Scan Replies",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/check-inbox",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "api-scan-inbox",
+      "name": "Vercel API: Scan Inbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        350,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "model": "deepseek-reasoner",
+        "prompt": "={{ 'The prospect said: \"' + $json.lastMessage + '\". Draft a professional, high-authority reply to book a call. Keep it under 50 words. If they ask about the offer, tell them it is an AI automation system that runs 24/7 for $0/mo after setup.' }}",
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "ai-brain",
+      "name": "DeepSeek: Draft Reply",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        600,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/reply",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"threadUrl\": \"{{ $json.threadUrl }}\",\n  \"message\": \"{{ $node[\"DeepSeek: Draft Reply\"].json.choices[0].message.content }}\"\n}",
+        "options": {}
+      },
+      "id": "api-send-reply",
+      "name": "Vercel API: Send Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        850,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/email/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"email\": \"{{ $json.email || 'pending@warmlead.com' }}\",\n  \"firstName\": \"{{ $json.firstName }}\",\n  \"company\": \"{{ $json.company }}\"\n}",
+        "options": {}
+      },
+      "id": "api-manyreach-push",
+      "name": "ManyReach: Sync Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1100,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every 2 Hours: Scan Replies": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Scan Inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vercel API: Scan Inbox": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek: Draft Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek: Draft Reply": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vercel API: Send Reply": {
+      "main": [
+        [
+          {
+            "node": "ManyReach: Sync Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "hash": "master-linkedin-warm-machine-v1"
+}
