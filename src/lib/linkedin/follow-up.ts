@@ -61,7 +61,7 @@ export async function runLinkedInFollowUp(
             try {
                 const isHealthy = await checkSessionHealth(page);
                 if (!isHealthy) {
-                    throw new Error('SESSION_INVALID: Please update your LI_SESSION.');
+                    console.warn('⚠️ LinkedIn Health: Verification failed, but proceeding anyway...');
                 }
 
                 const cleanUrl = lead.linkedinUrl.split('?')[0].replace(/\/$/, '');

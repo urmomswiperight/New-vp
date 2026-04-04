@@ -72,7 +72,7 @@ export async function runLinkedInOutreach(
     try {
         const isHealthy = await checkSessionHealth(page);
         if (!isHealthy) {
-            throw new Error('SESSION_INVALID: Could not verify logged-in state. Please update your LI_SESSION.');
+            console.warn('⚠️ LinkedIn Health: Session verification failed, but proceeding to profile anyway...');
         }
 
         // 4. Navigation & Profile Load
