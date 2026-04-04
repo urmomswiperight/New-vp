@@ -76,7 +76,11 @@ export async function runLinkedInOutreach(
         }
 
         // 4. Navigation & Profile Load
-        const cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
+        let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
+        if (!cleanUrl.startsWith('https://')) {
+            cleanUrl = cleanUrl.replace('http://', 'https://');
+            if (!cleanUrl.startsWith('https://')) cleanUrl = 'https://' + cleanUrl;
+        }
         console.log(`LinkedIn Outreach: Navigating to ${cleanUrl}...`);
         
         await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
