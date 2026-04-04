@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
     // 2. Request Body Parsing
     const body = await req.json().catch(() => ({}));
-    const { campaignId, email, firstName, lastName, company } = body;
+    const { campaignId, baseListId, email, firstName, lastName, company, icebreaker } = body;
 
     if (!campaignId || !email) {
       return NextResponse.json({ error: 'campaignId and email are required' }, { status: 400 });
@@ -27,7 +27,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'ManyReach service not configured' }, { status: 500 });
     }
 
-    console.log(`[${requestId}] ManyReach API: Pushing prospect ${email} to campaign ${campaignId}`);
+    // Fallback to the discovered baseListId if not provided in the request
+    const finalBaseListId = baseListId || process.env.MANYREACH_BASE_LIST_ID || 86894;
+
+    console.log(`[${requestId}] ManyReach API: Pushing prospect ${email} to campaign ${campaignId} (List: ${finalBaseListId})`);
 
     // 4. Push Prospect to ManyReach
     const response = await fetch('https://api.manyreach.com/api/v2/prospects', {
@@ -38,10 +41,12 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         campaignId: Number(campaignId),
+        baseListId: Number(finalBaseListId),
         email,
         firstName,
         lastName,
-        company
+        company,
+        icebreaker
       })
     });
 
