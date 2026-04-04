@@ -94,7 +94,15 @@ export async function injectLinkedInAuth(context: BrowserContext) {
                 });
 
                 await context.addCookies(cleanCookies);
-                console.log(`✅ LI_SESSION: Injected ${cleanCookies.length} cookies.`);
+                const cookieNames = cleanCookies.map((c: any) => c.name);
+                console.log(`✅ LI_SESSION: Injected ${cleanCookies.length} cookies: ${cookieNames.join(', ')}`);
+                
+                if (!cookieNames.includes('li_at')) {
+                    console.warn('⚠️ LI_SESSION: "li_at" cookie is missing. This will likely cause login failure.');
+                }
+                if (!cookieNames.includes('JSESSIONID')) {
+                    console.warn('⚠️ LI_SESSION: "JSESSIONID" cookie is missing. This may cause CSRF issues.');
+                }
                 return;
             }
         } catch (e: any) {
@@ -123,18 +131,47 @@ export async function injectLinkedInAuth(context: BrowserContext) {
  * Verifies if the current page is logged into LinkedIn.
  */
 export async function checkSessionHealth(page: Page): Promise<boolean> {
+    const isBypass = process.env.BYPASS_SESSION_HEALTH === 'true';
+    if (isBypass) {
+        console.warn('⚠️ LinkedIn Health: BYPASS ENABLED. Proceeding without verification.');
+        return true;
+    }
+
     try {
         console.log('LinkedIn Health: Checking login state...');
-        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 30000 });
         
-        // Check for specific logged-in markers
+        // Use networkidle for better reliability, but cap it with a 30s timeout
+        // LinkedIn is heavy on resources, so sometimes domcontentloaded is too early
+        try {
+            await page.goto('https://www.linkedin.com/feed/', { 
+                waitUntil: 'networkidle', 
+                timeout: 30000 
+            });
+        } catch (e: any) {
+            console.warn(`LinkedIn Health: Navigation warning (likely timed out on networkidle): ${e.message}. Proceeding with check.`);
+        }
+        
+        // Specific logged-in markers
         const markers = [
             '.feed-identity-module',
             '.global-nav__me-photo',
             '.search-global-typeahead',
-            'button[aria-label="Account Menu"]'
+            'button[aria-label="Account Menu"]',
+            '.share-box-feed-entry__trigger'
         ];
 
+        // Try to wait for at least one marker to appear
+        const found = await Promise.race([
+            ...markers.map(m => page.waitForSelector(m, { state: 'attached', timeout: 8000 }).then(() => m).catch(() => null)),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 8500))
+        ]);
+
+        if (found) {
+            console.log(`✅ LinkedIn Health: Found marker (${found}). Logged in.`);
+            return true;
+        }
+
+        // Final manual check of markers just in case
         for (const selector of markers) {
             const el = await page.$(selector);
             if (el) {
@@ -143,12 +180,33 @@ export async function checkSessionHealth(page: Page): Promise<boolean> {
             }
         }
 
-        // If markers fail, check for negative indicators
+        // If markers fail, capture diagnostic data
+        const currentUrl = page.url();
         const html = await page.content();
-        if (html.includes('authwall') || html.includes('login__form')) {
+        const snippet = html.substring(0, 500).replace(/\s+/g, ' ');
+        
+        console.error(`❌ LinkedIn Health: Markers not found. URL: ${currentUrl}`);
+        console.error(`❌ LinkedIn Health: Page snippet: ${snippet}...`);
+
+        if (html.includes('authwall') || html.includes('login__form') || currentUrl.includes('login')) {
             console.error('❌ LinkedIn Health: Logged out (Authwall/Login form detected).');
-        } else {
-            console.error('❌ LinkedIn Health: Unknown state (Markers not found).');
+        }
+
+        // Capture screenshot if in Vercel/Local logs (can help debug Browserless view)
+        try {
+            const fs = await import('fs');
+            const path = await import('path');
+            const os = await import('os');
+            const isVercel = process.env.VERCEL === '1';
+            const logsDir = isVercel ? os.tmpdir() : path.join(process.cwd(), 'logs');
+            if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const screenshotPath = path.join(logsDir, `health-check-fail-${timestamp}.png`);
+            await page.screenshot({ path: screenshotPath, fullPage: false });
+            console.log(`📸 Health check failure screenshot saved to: ${screenshotPath}`);
+        } catch (screenshotError: any) {
+            console.warn('⚠️ Could not capture failure screenshot:', screenshotError.message);
         }
 
         return false;
