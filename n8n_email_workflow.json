@@ -1,0 +1,284 @@
+{
+  "name": "MASTER: ManyReach Email Engine (671B)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "schedule-outreach",
+      "name": "9AM: Start Batch",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "manyreach-webhook",
+        "options": {}
+      },
+      "id": "reply-webhook",
+      "name": "Webhook: ManyReach Reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "New"
+            },
+            {
+              "key": "email",
+              "operation": "notEmpty"
+            }
+          ]
+        },
+        "limit": 50
+      },
+      "id": "get-leads",
+      "name": "Fetch 50 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        300,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://judgeable-pearly-actinally.ngrok-free.dev/api/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "deepseek-v3.1:671b-cloud"
+            },
+            {
+              "name": "prompt",
+              "value": "=Write a personalized 1-sentence icebreaker for {{ $json.firstName }} at {{ $json.company }}. No filler. Focus on AI growth."
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ai-personalize",
+      "name": "DeepSeek 671B Personalize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        500,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/email/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"campaignId\": \"YOUR_MANYREACH_ID\",\n  \"email\": \"{{ $node[\"Fetch 50 Leads\"].json.email }}\",\n  \"firstName\": \"{{ $node[\"Fetch 50 Leads\"].json.firstName }}\",\n  \"lastName\": \"{{ $node[\"Fetch 50 Leads\"].json.lastName }}\",\n  \"company\": \"{{ $node[\"Fetch 50 Leads\"].json.company }}\",\n  \"icebreaker\": \"{{ $json.response }}\"\n}",
+        "options": {}
+      },
+      "id": "push-to-manyreach",
+      "name": "API: Push to ManyReach",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        700,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "id",
+              "value": "={{ $node[\"Fetch 50 Leads\"].json.id }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "status": "Contacted (ManyReach)"
+        }
+      },
+      "id": "update-db-contacted",
+      "name": "Update DB: Contacted",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        900,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.event }}",
+              "value2": "prospect.replied"
+            }
+          ]
+        }
+      },
+      "id": "check-reply-event",
+      "name": "Is Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "email",
+              "value": "={{ $json.body.data.prospect.email }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "status": "Replied"
+        }
+      },
+      "id": "update-db-replied",
+      "name": "Update DB: Replied",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "9AM: Start Batch": {
+      "main": [
+        [
+          {
+            "node": "Fetch 50 Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 50 Leads": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek 671B Personalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek 671B Personalize": {
+      "main": [
+        [
+          {
+            "node": "push-to-manyreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "push-to-manyreach": {
+      "main": [
+        [
+          {
+            "node": "Update DB: Contacted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: ManyReach Reply": {
+      "main": [
+        [
+          {
+            "node": "Is Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Reply?": {
+      "main": [
+        [
+          {
+            "node": "Update DB: Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "hash": "master-manyreach-v1"
+}

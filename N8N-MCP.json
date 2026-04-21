@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "n8n-mcp": {
+            "type": "http",
+            "url": "https://n8n-production-b54f5.up.railway.app/mcp-server/http",
+            "headers": {
+                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ODI4MDUwNS00MzNjLTQ3NjItYTUwOC1hYWNlMzdhNDM2NjgiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImM3YmIyNzc5LTUxODYtNGVlMS1hMTg4LTBmODU0NmVmNWE5MCIsImlhdCI6MTc3NDE4NDU1Mn0.fkk5MWWSTWIxtBlFuCvnJaBHwDgNCNHSeyrd_-RnOc8"
+            }
+        }
+    }
+}

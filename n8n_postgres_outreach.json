@@ -1,0 +1,231 @@
+{
+  "name": "Postgres Outreach Engine (Agentic v1)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "postgres-personalize",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Outreach Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM \"Campaign\" WHERE name = 'AI Marketing Agent Sprint V2 (Personalized)' LIMIT 1;"
+      },
+      "id": "get-campaign",
+      "name": "Get Campaign ID",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.2,
+      "position": [
+        200,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Local-Postgres-Credential-ID",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM \"Lead\" WHERE status = 'New' LIMIT 100;"
+      },
+      "id": "get-leads",
+      "name": "Fetch 100 New Leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Local-Postgres-Credential-ID",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "deepseek-v3.1:671b-cloud"
+            },
+            {
+              "name": "prompt",
+              "value": "=Write a personalized cold email using the BAB (Before-After-Bridge) framework.\n\nLEAD INFO:\n- Name: {{ $json.firstName }}\n- Company: {{ $json.company }}\n- Context: Looking for AI automation to scale growth.\n\nFramework Logic:\n- Before: Mention the pain of manual, slow growth setup.\n- After: Imagine a 24/7 AI pipeline booking meetings while they sleep.\n- Bridge: My AI Outreach system that handled 5,000 leads this month.\n\nKeep it under 80 words, professional but casual.\n\nOutput only the email body, no subject line."
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ollama-node",
+      "name": "Ollama Llama 3.1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        650,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "LeadDraft",
+          "mode": "list",
+          "cachedResultName": "LeadDraft"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $node[\"Fetch 100 New Leads\"].json.id + '-' + $node[\"Get Campaign ID\"].json.id }}",
+            "leadId": "={{ $node[\"Fetch 100 New Leads\"].json.id }}",
+            "campaignId": "={{ $node[\"Get Campaign ID\"].json.id }}",
+            "content": "={{ $json.response }}",
+            "subject": "=Quick idea for {{ $node[\"Fetch 100 New Leads\"].json.company }}",
+            "status": "Pending",
+            "reasoning": "{\"logic\": \"Ollama BAB Personalization\"}"
+          }
+        }
+      },
+      "id": "save-draft",
+      "name": "Save Lead Draft",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Local-Postgres-Credential-ID",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Lead",
+          "mode": "list",
+          "cachedResultName": "Lead"
+        },
+        "updateKey": "id",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $node[\"Fetch 100 New Leads\"].json.id }}",
+            "status": "Personalized",
+            "updatedAt": "={{ new Date().toISOString() }}"
+          }
+        }
+      },
+      "id": "mark-personalized",
+      "name": "Mark Lead Personalized",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.2,
+      "position": [
+        1150,
+        400
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "Local-Postgres-Credential-ID",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Outreach Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Campaign ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Campaign ID": {
+      "main": [
+        [
+          {
+            "node": "Fetch 100 New Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 100 New Leads": {
+      "main": [
+        [
+          {
+            "node": "Ollama Llama 3.1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Llama 3.1": {
+      "main": [
+        [
+          {
+            "node": "Save Lead Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead Draft": {
+      "main": [
+        [
+          {
+            "node": "Mark Lead Personalized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "hash": "postgres-outreach-v1"
+}

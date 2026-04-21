@@ -1,0 +1,198 @@
+{
+  "name": "Meeting Summarizer & Competitor Researcher",\n  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",\n        "path": "research-summarize",\n        "authentication": "headerAuth",\n        "options": {}
+      },
+      "id": "w1e2b3h4-o5o6-4k7b-8c9d-0e1f2a3b4c5d",\n      "name": "Webhook",\n      "type": "n8n-nodes-base.webhook",\n      "typeVersion": 1,\n      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "headerAuth": {
+          "id": "X-API-KEY-Credential-ID",\n          "name": "Outreach API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "r1e2s3p4-o5n6-4d7b-8c9d-0e1f2a3b4c5d",\n      "name": "Respond to Webhook",\n      "type": "n8n-nodes-base.respondToWebhook",\n      "typeVersion": 1,\n      "position": [
+        1400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",\n        "url": "http://localhost:11434/api/chat",\n        "sendBody": true,\n        "bodyParameters": {\n          "parameters": [
+            {
+              "name": "model",\n              "value": "llama3.1:8b"
+            },
+            {
+              "name": "messages",\n              "value": "=[{ \"role\": \"system\", \"content\": \"You are a professional B2B research assistant. Summarize meeting transcripts into structured JSON with the following keys: goal (string), painPoints (array of strings), nextActions (array of strings), summary (string).\" }, { \"role\": \"user\", \"content\": \"Summarize this transcript: {{ $json.body.transcript }}\" }]"
+            },
+            {
+              "name": "stream",\n              "value": "false"
+            },
+            {
+              "name": "format",\n              "value": "json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "o1l2l3a4-e5m6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Ollama Summarizer",\n      "type": "n8n-nodes-base.httpRequest",\n      "typeVersion": 4,\n      "position": [
+        450,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",\n        "url": "http://localhost:11434/api/chat",\n        "sendBody": true,\n        "bodyParameters": {\n          "parameters": [
+            {
+              "name": "model",\n              "value": "llama3.1:8b"
+            },
+            {
+              "name": "messages",\n              "value": "=[{ \"role\": \"system\", \"content\": \"Identify the company name and primary industry from this meeting transcript. Return JSON with keys: companyName, industry.\" }, { \"role\": \"user\", \"content\": \"{{ $node[\\\"Webhook\\\"].json.body.transcript }}\" }]"
+            },
+            {
+              "name": "stream",\n              "value": "false"
+            },
+            {
+              "name": "format",\n              "value": "json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "o1l2l3a4-e5x6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Extract Company Info",\n      "type": "n8n-nodes-base.httpRequest",\n      "typeVersion": 4,\n      "position": [
+        450,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "query": "={{ JSON.parse($json.message.content).companyName }} top competitors and pricing",\n        "options": {\n          "safeSearch": "off"
+        }
+      },
+      "id": "d1u2c3k4-g5o6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Search Competitors",\n      "type": "n8n-nodes-base.duckDuckGo",\n      "typeVersion": 1,\n      "position": [
+        650,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",\n        "url": "http://localhost:11434/api/chat",\n        "sendBody": true,\n        "bodyParameters": {\n          "parameters": [
+            {
+              "name": "model",\n              "value": "llama3.1:8b"
+            },
+            {
+              "name": "messages",\n              "value": "=[{ \"role\": \"system\", \"content\": \"Based on the search results provided, identify the top 3 competitors. For each, provide a battle card in JSON format within a 'competitors' array. Each competitor should have: name, strength, weakness, valueProp (how to beat them).\" }, { \"role\": \"user\", \"content\": \"{{ $json.join('\\\\n') }}\" }]"
+            },
+            {
+              "name": "stream",\n              "value": "false"
+            },
+            {
+              "name": "format",\n              "value": "json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "o1l2l3a4-e5c6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Analyze Competitors",\n      "type": "n8n-nodes-base.httpRequest",\n      "typeVersion": 4,\n      "position": [
+        850,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",\n        "combineBy": "position",\n        "options": {}
+      },
+      "id": "m1e2r3g4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Merge Summary & Competitors",\n      "type": "n8n-nodes-base.merge",\n      "typeVersion": 3,\n      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const summary = JSON.parse($input.first().json.message.content);\nconst competitorsData = JSON.parse($input.last().json.message.content);\n\nreturn {\n  ...summary,\n  competitors: competitorsData.competitors || []\n};"
+      },
+      "id": "p1a2r3s4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",\n      "name": "Final JSON Result",\n      "type": "n8n-nodes-base.code",\n      "typeVersion": 2,\n      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Ollama Summarizer",\n            "type": "main",\n            "index": 0
+          },
+          {
+            "node": "Extract Company Info",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Summarizer": {
+      "main": [
+        [
+          {
+            "node": "Merge Summary & Competitors",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Company Info": {
+      "main": [
+        [
+          {
+            "node": "Search Competitors",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Competitors": {
+      "main": [
+        [
+          {
+            "node": "Analyze Competitors",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Competitors": {
+      "main": [
+        [
+          {
+            "node": "Merge Summary & Competitors",\n            "type": "main",\n            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Summary & Competitors": {
+      "main": [
+        [
+          {
+            "node": "Final JSON Result",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final JSON Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",\n            "type": "main",\n            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "hash": "research-competitors-v1"
+}

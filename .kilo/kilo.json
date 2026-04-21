@@ -1,0 +1,10 @@
+{
+  "permission": {
+    "read": {
+      "D:/New-vp-main/.kilo/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "D:/New-vp-main/.kilo/get-shit-done/*": "allow"
+    }
+  }
+}

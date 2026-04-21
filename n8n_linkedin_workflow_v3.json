@@ -1,0 +1,312 @@
+{
+  "name": "LinkedIn Outreach - Playwright Stealth V3",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-9am",
+      "name": "Daily Start (9 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableName": "Lead",
+        "limit": 25,
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "Drafted"
+            },
+            {
+              "key": "linkedinUrl",
+              "operator": "notEmpty"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-leads",
+      "name": "Fetch 25 Drafted Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        50,
+        400
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batches",
+      "name": "Split in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ 2 + Math.floor(Math.random() * 5) }}",
+        "unit": "minutes"
+      },
+      "id": "jitter-wait",
+      "name": "Human Jitter (2-7m)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        500,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "command": "={{ 'npx tsx scripts/linkedin-outreach-v2.ts \"' + $json.linkedinUrl + '\" \"' + ($json.metadata?.draft || 'Hi ' + ($json.firstName || '') + ', let\\'s connect!') + '\" 25' }}"
+      },
+      "id": "playwright-sender",
+      "name": "Playwright Stealth Send",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        750,
+        400
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.stderr || ($json.stdout && JSON.parse($json.stdout).success === false) }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-error",
+      "name": "Check for Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "tableName": "Lead",
+        "updateKey": "id",
+        "dataToUpdate": {
+          "values": [
+            {
+              "column": "status",
+              "value": "Contacted"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-success",
+      "name": "Mark Contacted",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableName": "Lead",
+        "updateKey": "id",
+        "dataToUpdate": {
+          "values": [
+            {
+              "column": "status",
+              "value": "Error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "update-error",
+      "name": "Mark Error",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"Split in Batches\"].context[\"noItemsLeft\"] }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "loop-complete",
+      "name": "Loop Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1550,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Start (9 AM)": {
+      "main": [
+        [
+          {
+            "node": "Fetch 25 Drafted Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 25 Drafted Leads": {
+      "main": [
+        [
+          {
+            "node": "Split in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split in Batches": {
+      "main": [
+        [
+          {
+            "node": "Human Jitter (2-7m)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Human Jitter (2-7m)": {
+      "main": [
+        [
+          {
+            "node": "Playwright Stealth Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Playwright Stealth Send": {
+      "main": [
+        [
+          {
+            "node": "Check for Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Error": {
+      "main": [
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Contacted",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Mark Contacted": {
+      "main": [
+        [
+          {
+            "node": "Loop Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Error": {
+      "main": [
+        [
+          {
+            "node": "Loop Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Done?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Split in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "hash": "linkedin-v3-stealth"
+}

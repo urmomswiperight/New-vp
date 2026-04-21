@@ -1,0 +1,20 @@
+{
+  "stack": {
+    "frontend": "Next.js 15",
+    "css": "Tailwind + shadcn/ui",
+    "database": "Supabase (Postgres)",
+    "auth": "Supabase Auth",
+    "logic": "n8n",
+    "payments": "Stripe",
+    "hosting": "Vercel"
+  },
+  "preferences": {
+    "ui_style": "Clean minimal professional SaaS (AdminDek style)",
+    "outreach": "n8n Custom Nodes (Cold Email + LinkedIn)",
+    "pricing": {
+      "subscription": 500,
+      "trial": "5 uses or 7 days"
+    },
+    "availability": "20:00–05:00 UTC"
+  }
+}

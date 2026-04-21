@@ -1,0 +1,131 @@
+{
+  "mcpServers": {
+    "browserless": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--streamableHttp",
+        "https://mcp.browserless.io/mcp",
+        "--header",
+        "authorization:Bearer 2UMkvorrEC9jgw0b096dd6468f702e66b2e81de339e48bdbf"
+      ]
+    },
+    "linkedin": {
+      "command": "npx",
+      "args": [
+        "ts-node",
+        "--esm",
+        "scripts/linkedin-mcp-server.ts"
+      ]
+    },
+    "gumroad": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "gumroad-mcp@latest"
+      ],
+      "env": {
+        "GUMROAD_ACCESS_TOKEN": "dKbRnWnMa9jZC67_JE8cIBSB7sOkiFuVlOTWLZlI18E"
+      }
+    },
+    "n8n-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "supergateway",
+        "--streamableHttp",
+        "https://robaaa.app.n8n.cloud/mcp-server/http",
+        "--header",
+        "authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlNDc2OWEyMC00ZjU2LTQyOGQtODk5Yi0wY2ZmMTI4MDk5YmQiLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImFmMTMwZTdmLWNiOTAtNGVmYi1hMjUwLWY4ZWRmZDQ0ZTUyYyIsImlhdCI6MTc3Mzc2NDM1MH0.Uq0vKygTfQYAdIiRcy4WvjJYyOnhQqzaaqwGD0uG1Rw"
+      ]
+    }
+  },
+  "experimental": {
+    "enableAgents": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-check-update.js"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-session-state.sh"
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-context-monitor.js",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-phase-boundary.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-prompt-guard.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-read-guard.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-workflow-guard.js",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.gemini/hooks/gsd-validate-commit.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

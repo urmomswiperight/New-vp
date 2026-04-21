@@ -1,0 +1,192 @@
+{
+  "name": "MASTER: AI Auto-Reply Engine (671B)",
+  "nodes": [
+    {
+      "parameters": {
+        "postImportAction": "nothing",
+        "format": "resolved",
+        "options": {
+          "customFilters": "UNSEEN"
+        }
+      },
+      "id": "imap-trigger",
+      "name": "IMAP Email Trigger",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ],
+      "credentials": {
+        "imap": {
+          "id": "IMAP-Credential-ID",
+          "name": "IMAP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "email",
+              "value": "={{ $json.from.address }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "find-lead",
+      "name": "Find Lead in DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        300,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://judgeable-pearly-actinally.ngrok-free.dev/api/chat",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "deepseek-v3.1:671b-cloud"
+            },
+            {
+              "name": "messages",
+              "value": "=[{ \"role\": \"system\", \"content\": \"You are Robel, an AI Automation Expert (Computer Science & Data Science background). Reply to this lead. Tone: High-authority builder, technically sound, simple, no jargon. Goal: Suggest 15-min call if interested. CTA Links: https://robelseife.gumroad.com/l/Fullmarketing or https://calendar.app.google/Q3CwDJhR33qo2EhZ6. Max 60 words.\" }, { \"role\": \"user\", \"content\": \"Lead Name: {{ $node[\\\"Find Lead in DB\\\"].json.firstName }}. Lead Message: {{ $node[\\\"IMAP Email Trigger\\\"].json.text }}\" }]"
+            },
+            {
+              "name": "stream",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ai-generator",
+      "name": "DeepSeek 671B Generator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-email@example.com",
+        "toEmail": "={{ $node[\"IMAP Email Trigger\"].json.from.address }}",
+        "subject": "=Re: {{ $node[\"IMAP Email Trigger\"].json.subject }}",
+        "html": "=<html><body><p>Hi {{ $node[\"Find Lead in DB\"].json.firstName }},</p><p>{{ $json.message.content }}</p><p>Best,<br>Robel</p></body></html>",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP-Credential-ID",
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "id",
+              "value": "={{ $node[\"Find Lead in DB\"].json.id }}"
+            }
+          ]
+        },
+        "updateFields": {
+          "status": "Replied"
+        }
+      },
+      "id": "update-status",
+      "name": "Update DB",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "IMAP Email Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find Lead in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Lead in DB": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek 671B Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek 671B Generator": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reply": {
+      "main": [
+        [
+          {
+            "node": "Update DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "hash": "master-autoreply-v1"
+}

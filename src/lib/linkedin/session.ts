@@ -1,0 +1,99 @@
+import type { BrowserContext, Page } from 'playwright-core';
+
+/**
+ * Injects full Playwright storageState JSON into the browser context.
+ * Prioritizes cookies as per research.
+ */
+export async function injectFullStorageState(context: BrowserContext, sessionJson: string) {
+    try {
+        const storageState = JSON.parse(sessionJson);
+        const cookies = storageState.cookies || [];
+        
+        if (cookies.length > 0) {
+            const cleanCookies = cookies.map((c: any) => ({
+                name: String(c.name),
+                value: String(c.value),
+                domain: c.domain?.startsWith('.') ? c.domain : `.${c.domain || 'www.linkedin.com'}`,
+                path: c.path || '/',
+                httpOnly: !!(c.httpOnly ?? true),
+                secure: true,
+                sameSite: (c.sameSite?.toLowerCase() === 'strict' ? 'Strict' : (c.sameSite?.toLowerCase() === 'lax' ? 'Lax' : 'None')) as any
+            }));
+            await context.addCookies(cleanCookies);
+        }
+
+        // Inject LocalStorage (origins)
+        const origins = storageState.origins || [];
+        if (origins.length > 0) {
+            // We need a page to inject localStorage
+            const page = await context.newPage();
+            for (const origin of origins) {
+                await page.goto(origin.origin, { waitUntil: 'commit' });
+                await page.evaluate((data) => {
+                    for (const item of data) {
+                        localStorage.setItem(item.name, item.value);
+                    }
+                }, origin.localStorage);
+            }
+            await page.close();
+        }
+        
+        return { success: true, cookieCount: cookies.length, originCount: origins.length };
+    } catch (e: any) {
+        console.error('Failed to inject storage state:', e.message);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Checks the login health of the LinkedIn session.
+ * Returns 'LOGGED_IN' | 'LOGGED_OUT' | 'CHALLENGED'.
+ * Uses ARIA roles for resilience.
+ */
+export async function checkLoginHealth(page: Page): Promise<'LOGGED_IN' | 'LOGGED_OUT' | 'CHALLENGED'> {
+    try {
+        // Use domcontentloaded for speed, as recommended in research
+        await page.goto('https://www.linkedin.com/feed/', { 
+            waitUntil: 'domcontentloaded', 
+            timeout: 30000 
+        });
+
+        // 1. Check for logged in state (Home link in global nav)
+        // Using getByRole as per Pattern 2 in 08-RESEARCH.md
+        const homeLink = page.getByRole('link', { name: 'Home', exact: true });
+        if (await homeLink.isVisible()) {
+            return 'LOGGED_IN';
+        }
+
+        // 2. Check for login redirect or authwall
+        const url = page.url();
+        if (url.includes('/login') || url.includes('/authwall')) {
+            return 'LOGGED_OUT';
+        }
+
+        // 3. Check for security challenges / CAPTCHA
+        const securityCheck = page.getByText(/Security Check/i);
+        const captcha = page.locator('#captcha-internal');
+        if (await securityCheck.isVisible() || await captcha.isVisible()) {
+            return 'CHALLENGED';
+        }
+
+        // Fallback: Check for 'Me' menu which is another strong indicator of being logged in
+        // Use .first() to avoid strict mode violations if multiple elements exist
+        const meMenu = page.getByRole('button', { name: /Me/i }).first();
+        if (await meMenu.isVisible()) {
+            return 'LOGGED_IN';
+        }
+
+        // Additional indicator: Check for 'Account' or profile photo
+        const profilePhoto = page.getByAltText(/Photo of/i).first();
+        if (await profilePhoto.isVisible()) {
+            return 'LOGGED_IN';
+        }
+
+        return 'LOGGED_OUT';
+    } catch (e) {
+        console.error('Health check failed:', e);
+        return 'LOGGED_OUT';
+    }
+}

@@ -1,0 +1,225 @@
+{
+  "name": "MASTER: LinkedIn Sales Machine (V4)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-daily-outreach",
+      "name": "9AM: Start Outreach",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "trigger-inbox-check",
+      "name": "Every 2 Hours: Check Inbox",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "trigger-nudge",
+      "name": "10AM: 3-Day Nudge",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "table": "Lead",
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "New"
+            },
+            {
+              "key": "linkedinUrl",
+              "operation": "notEmpty"
+            }
+          ]
+        },
+        "limit": 25
+      },
+      "id": "get-new-leads",
+      "name": "Fetch 25 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        300,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"profileUrl\": \"{{ $json.linkedinUrl }}\",\n  \"message\": \"Hi {{ $json.firstName }}, saw your work at {{ $json.company }} and thought our AI automation would be a game-changer for you.\"\n}",
+        "options": {}
+      },
+      "id": "call-outreach-api",
+      "name": "API: Send Connection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        550,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/check-inbox",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call-inbox-api",
+      "name": "API: Scan Replies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/follow-up",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"Hi [Name], following up on my last message. If you want to own your outreach infra for $0/mo, check it here: https://robelseife.gumroad.com/l/Fullmarketing\",\n  \"daysDelay\": 3\n}",
+        "options": {}
+      },
+      "id": "call-nudge-api",
+      "name": "API: Send Nudge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        300,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "9AM: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Fetch 25 Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch 25 Leads": {
+      "main": [
+        [
+          {
+            "node": "API: Send Connection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 2 Hours: Check Inbox": {
+      "main": [
+        [
+          {
+            "node": "API: Scan Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10AM: 3-Day Nudge": {
+      "main": [
+        [
+          {
+            "node": "API: Send Nudge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "hash": "master-linkedin-suite-v4"
+}
