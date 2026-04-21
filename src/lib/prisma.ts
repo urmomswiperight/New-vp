@@ -33,7 +33,12 @@ const prismaClientSingleton = () => {
     console.log('[Prisma] Could not parse connection string for logging');
   }
 
-  const pool = new Pool({ connectionString })
+  const pool = new Pool({ 
+    connectionString,
+    max: 1, // Limit to 1 connection per lambda to stay under Supabase limits
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
 }

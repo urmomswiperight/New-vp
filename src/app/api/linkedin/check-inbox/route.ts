@@ -9,6 +9,7 @@ export async function POST(req: Request) {
     // 1. Authentication
     const secretHeader = req.headers.get('X-Outreach-Secret');
     if (!secretHeader || secretHeader !== process.env.OUTREACH_SECRET) {
+      console.warn(`[${requestId}] Unauthorized: Secret header missing or invalid.`);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

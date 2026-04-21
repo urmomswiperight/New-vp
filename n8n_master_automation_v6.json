@@ -1,0 +1,185 @@
+{
+  "name": "LinkedIn Master Automation v6",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "trigger-every-15m",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-app.vercel.app/api/linkedin/check-inbox",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-inbox",
+      "name": "Check LinkedIn Inbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        350,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_HEADER_AUTH_ID",
+          "name": "Outreach Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-app.vercel.app/api/linkedin/follow-up",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "daysDelay",
+              "value": "3"
+            },
+            {
+              "name": "message",
+              "value": "Hi [Name], checking in to see if you had a moment to look at my last message?"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "run-followups",
+      "name": "Run Follow-ups",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        350,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_HEADER_AUTH_ID",
+          "name": "Outreach Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.repliedLeads.length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "any-replies",
+      "name": "Any New Replies?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        600,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_OR_SLACK_ID",
+        "text": "🚀 *LinkedIn Update*\n\n✅ Processed {{ $node[\"Check LinkedIn Inbox\"].json.repliedLeads.length }} new replies.\n📦 Sent {{ $node[\"Run Follow-ups\"].json.sentLeads.length }} follow-ups.\n\n*Hot Leads:* {{ $node[\"Check LinkedIn Inbox\"].json.repliedLeads.filter(l => l.sentiment === 'POSITIVE').map(l => l.email).join(', ') }}"
+      },
+      "id": "notify-me",
+      "name": "Notify Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check LinkedIn Inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check LinkedIn Inbox": {
+      "main": [
+        [
+          {
+            "node": "Run Follow-ups",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Any New Replies?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Follow-ups": {
+      "main": [
+        [
+          {
+            "node": "Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Replies?": {
+      "main": [
+        [
+          {
+            "node": "Notify Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
