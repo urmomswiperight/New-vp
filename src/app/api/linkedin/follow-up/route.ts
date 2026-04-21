@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { runLinkedInFollowUp } from '@/lib/linkedin/follow-up';
+import prisma from '@/lib/prisma';
 
 export async function POST(req: Request) {
   const requestId = Math.random().toString(36).substring(7);
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
       success: false, 
       error: error.message || 'An unexpected error occurred' 
     }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
