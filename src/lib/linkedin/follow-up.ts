@@ -53,7 +53,7 @@ export async function runLinkedInFollowUp(
                     updatedAt: { lte: cutoffDate },
                     sentiment: null // ONLY follow up if they haven't replied (sentiment is empty)
                 },
-                take: 5
+                take: 20
             });
 
             if (eligibleLeads.length === 0) continue;
