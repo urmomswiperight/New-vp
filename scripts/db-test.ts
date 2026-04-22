@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../src/lib/prisma';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
@@ -7,8 +7,6 @@ dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 async function testConnection() {
     console.log('🔍 Testing Database Connection...');
     console.log(`URL: ${process.env.DATABASE_URL?.replace(/:([^:@]+)@/, ':****@')}`); // Mask password
-
-    const prisma = new PrismaClient();
 
     try {
         await prisma.$connect();
