@@ -26,6 +26,7 @@ const prismaClientSingleton = () => {
   // It handles connection pooling internally via the DATABASE_URL query parameters.
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    // Use direct connection parameters for better stability
   })
 }
 
