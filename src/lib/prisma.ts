@@ -5,10 +5,6 @@ import dotenv from 'dotenv'
 import path from 'path'
 import fs from 'fs'
 
-/**
- * Prisma 7 compatible Client
- * Uses the @prisma/adapter-pg to handle connections since 'url' is removed from schema.
- */
 const prismaClientSingleton = () => {
   // Manual load if not already loaded
   if (!process.env.DATABASE_URL) {
@@ -19,9 +15,10 @@ const prismaClientSingleton = () => {
   }
 
   const connectionString = process.env.DATABASE_URL
+  
   if (!connectionString) {
-    console.warn('DATABASE_URL is missing. Check your environment variables.');
-    return new PrismaClient();
+    // During build time on Vercel, DATABASE_URL might be empty
+    return new PrismaClient()
   }
 
   const pool = new Pool({ connectionString })
