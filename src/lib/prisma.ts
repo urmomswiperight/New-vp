@@ -1,13 +1,32 @@
 import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg'
+import { PrismaPg } from '@prisma/adapter-pg'
+import dotenv from 'dotenv'
+import path from 'path'
+import fs from 'fs'
 
 /**
- * Clean & Direct Prisma Client
- * Optimized for Vercel + Supabase Direct Connection (Port 5432)
+ * Prisma 7 compatible Client
+ * Uses the @prisma/adapter-pg to handle connections since 'url' is removed from schema.
  */
 const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: ['error', 'warn'],
-  })
+  // Manual load if not already loaded
+  if (!process.env.DATABASE_URL) {
+    const envPath = path.resolve(process.cwd(), '.env.local')
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath })
+    }
+  }
+
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    console.warn('DATABASE_URL is missing. Check your environment variables.');
+    return new PrismaClient();
+  }
+
+  const pool = new Pool({ connectionString })
+  const adapter = new PrismaPg(pool)
+  return new PrismaClient({ adapter })
 }
 
 declare global {
