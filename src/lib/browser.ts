@@ -6,10 +6,22 @@ import { addExtra } from 'playwright-extra';
 
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const UserPreferencesPlugin = require('puppeteer-extra-plugin-user-preferences');
+
 const plugin = addExtra(baseChromium);
 
-// Manually resolve dependencies for playwright-extra
-plugin.plugins.setDependencyResolution('stealth', 'user-preferences', () => UserPreferencesPlugin);
+// Manually initialize and register plugins to avoid dynamic resolution issues
+try {
+    const stealth = StealthPlugin();
+    const userPrefs = UserPreferencesPlugin();
+    
+    // Adding them in order so dependencies are already satisfied
+    plugin.use(userPrefs);
+    plugin.use(stealth);
+    
+    console.log('✅ Browser plugins initialized manually.');
+} catch (e: any) {
+    console.error('❌ Failed to initialize browser plugins:', e.message);
+}
 
 const FIXED_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -276,12 +288,6 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
     }
 
     const chromium = plugin;
-    try { 
-        const stealth = StealthPlugin();
-        chromium.use(stealth); 
-    } catch (e) {
-        console.error('Failed to apply StealthPlugin:', e);
-    }
 
     let retries = 0;
     while (retries < maxRetries) {
