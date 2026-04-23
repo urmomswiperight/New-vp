@@ -1,6 +1,10 @@
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 import axios from 'axios';
 
+import { chromium as baseChromium } from 'playwright-core';
+import { addExtra } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
 const FIXED_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 /**
@@ -265,10 +269,6 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
         throw new Error('BROWSERLESS_WSS is not defined.');
     }
 
-    const { chromium: baseChromium } = await import('playwright-core');
-    const { addExtra } = await import('playwright-extra');
-    const { default: StealthPlugin } = await import('puppeteer-extra-plugin-stealth');
-    
     const chromium = addExtra(baseChromium);
     try { chromium.use(StealthPlugin()); } catch (e) {}
 
