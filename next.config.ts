@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
     "playwright-extra",
     "puppeteer-extra",
     "puppeteer-extra-plugin-stealth",
+    "puppeteer-extra-plugin-user-preferences",
+    "puppeteer-extra-plugin",
+    "clone-deep",
+    "merge-deep",
     "is-plain-object"
   ],
   eslint: {
