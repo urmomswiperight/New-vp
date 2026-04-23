@@ -3,7 +3,7 @@ import axios from 'axios';
 
 import { chromium as baseChromium } from 'playwright-core';
 import { addExtra } from 'playwright-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
 const FIXED_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -270,7 +270,12 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
     }
 
     const chromium = addExtra(baseChromium);
-    try { chromium.use(StealthPlugin()); } catch (e) {}
+    try { 
+        const stealth = StealthPlugin();
+        chromium.use(stealth); 
+    } catch (e) {
+        console.error('Failed to apply StealthPlugin:', e);
+    }
 
     let retries = 0;
     while (retries < maxRetries) {
