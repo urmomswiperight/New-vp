@@ -3,7 +3,13 @@ import axios from 'axios';
 
 import { chromium as baseChromium } from 'playwright-core';
 import { addExtra } from 'playwright-extra';
+
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const UserPreferencesPlugin = require('puppeteer-extra-plugin-user-preferences');
+const plugin = addExtra(baseChromium);
+
+// Manually resolve dependencies for playwright-extra
+plugin.plugins.setDependencyResolution('stealth', 'user-preferences', () => UserPreferencesPlugin);
 
 const FIXED_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
@@ -269,7 +275,7 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
         throw new Error('BROWSERLESS_WSS is not defined.');
     }
 
-    const chromium = addExtra(baseChromium);
+    const chromium = plugin;
     try { 
         const stealth = StealthPlugin();
         chromium.use(stealth); 
