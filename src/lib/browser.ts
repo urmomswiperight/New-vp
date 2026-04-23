@@ -14,11 +14,17 @@ try {
     const stealth = StealthPlugin();
     const userPrefs = UserPreferencesPlugin();
     
+    // CRITICAL: Clear dependencies property so playwright-extra doesn't try to "find" them via require()
+    // since we are adding them manually in the correct order.
+    if (stealth.dependencies) {
+        stealth.dependencies = new Set();
+    }
+    
     // Adding them in order so dependencies are already satisfied
     plugin.use(userPrefs);
     plugin.use(stealth);
     
-    console.log('✅ Browser plugins initialized manually.');
+    console.log('✅ Browser plugins initialized manually (dependencies cleared).');
 } catch (e: any) {
     console.error('❌ Failed to initialize browser plugins:', e.message);
 }
