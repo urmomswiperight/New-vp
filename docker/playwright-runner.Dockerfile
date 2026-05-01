@@ -9,5 +9,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Expose CDP port
 EXPOSE 3000
 
-# Start Playwright in server mode
-CMD ["npx", "playwright", "run-server", "--port", "3000", "--host", "0.0.0.0"]
+# Start Playwright in server mode using the PORT environment variable
+CMD ["sh", "-c", "npx playwright run-server --port $PORT --host 0.0.0.0"]
