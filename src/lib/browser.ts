@@ -287,11 +287,14 @@ export async function browserlessCrawl(params: {
  * Connects to Browserless.io using Playwright
  */
 export async function connectToBrowserless(maxRetries: number = 5): Promise<Browser> {
-    const auth = process.env.BROWSERLESS_WSS;
+    const wssUrl = process.env.BROWSERLESS_WSS;
     
-    if (!auth) {
-        throw new Error('BROWSERLESS_WSS is not defined.');
+    if (!wssUrl) {
+        throw new Error('BROWSERLESS_WSS is not defined. Ensure it is set to your Render URL (e.g., wss://playwright-runner.onrender.com)');
     }
+
+    // If a token is provided in the URL, use it, otherwise add it as a query param
+    const authUrl = wssUrl.includes('token=') ? wssUrl : `${wssUrl}?token=${process.env.BROWSERLESS_TOKEN || 'your-secret-token'}`;
 
     const chromium = plugin;
 
@@ -299,7 +302,7 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
     while (retries < maxRetries) {
         try {
             console.log(`Connecting to Browserless (Attempt ${retries + 1})...`);
-            return await chromium.connectOverCDP(auth);
+            return await chromium.connectOverCDP(authUrl);
         } catch (e: any) {
             retries++;
             if (retries >= maxRetries) throw e;
