@@ -1,5 +1,5 @@
 {
-  "name": "MASTER: LinkedIn Conversational AI (V7 - Webhook Triggered)",
+  "name": "MASTER: LinkedIn Conversational AI (V8 - Anti-Spam)",
   "nodes": [
     {
       "parameters": {
@@ -101,7 +101,7 @@
         "options": {}
       },
       "id": "edit-message",
-      "name": "Construct Icebreaker (No Link)",
+      "name": "Construct Icebreaker",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
@@ -135,6 +135,30 @@
         750,
         100
       ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "tableName": "Lead",
+        "id": "={{ $('Split In Batches').item.json.id }}",
+        "fields": {
+          "status": "Contacted (LinkedIn)"
+        }
+      },
+      "id": "supabase-mark-contacted",
+      "name": "Supabase: Mark Contacted",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
     },
     {
       "parameters": {
@@ -189,7 +213,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1,
       "position": [
-        1000,
+        1250,
         100
       ]
     }
@@ -262,6 +286,17 @@
       ]
     },
     "api-outreach": {
+      "main": [
+        [
+          {
+            "node": "supabase-mark-contacted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "supabase-mark-contacted": {
       "main": [
         [
           {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToBrowserless } from '@/lib/browser';
+import { connectToBrowserless, FIXED_USER_AGENT } from '@/lib/browser';
 import { injectFullStorageState, checkLoginHealth } from '@/lib/linkedin/session';
 import { sendConnectionRequest } from '@/lib/linkedin/actions';
 import { SELECTORS } from '@/lib/linkedin/selectors';
@@ -53,7 +53,9 @@ export async function POST(req: Request) {
     // 4. Browser Setup
     const browser = await connectToBrowserless();
     const context = await browser.newContext({
-        viewport: { width: 1280, height: 720 }
+        viewport: { width: 1280, height: 720 },
+        userAgent: FIXED_USER_AGENT,
+        locale: 'en-US'
     });
 
     // 5. Session Injection (Storage State)
@@ -67,26 +69,44 @@ export async function POST(req: Request) {
     const screenshotPath = path.join(logsDir, `linkedin-api-error-${timestamp}.png`);
 
     try {
-        // 6. Mandatory Health Check
-        const health = await checkLoginHealth(page);
-        if (health !== 'LOGGED_IN') {
+        // 6. Navigation + Implicit Health Check
+        let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
+        console.log(`[${requestId}] LinkedIn Outreach API: Navigating to ${cleanUrl}`);
+        
+        // Go directly to profile. If we're logged out, LinkedIn will redirect to /authwall or /login
+        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 420000 });
+        await page.waitForTimeout(2000 + Math.random() * 2000);
+
+        const currentUrl = page.url();
+        if (currentUrl.includes('/login') || currentUrl.includes('/authwall')) {
+            console.error(`[${requestId}] LinkedIn Outreach API: Session invalid (redirected to ${currentUrl})`);
             await page.screenshot({ path: screenshotPath });
             return NextResponse.json({ 
                 success: false, 
-                error: `SESSION_UNHEALTHY: ${health}`,
-                screenshot: screenshotPath
+                error: 'SESSION_INVALID', 
+                details: `Redirected to ${currentUrl}`,
+                screenshot: screenshotPath 
             }, { status: 403 });
         }
 
-        // 7. Navigation
-        let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
-        console.log(`[${requestId}] LinkedIn Outreach API: Navigating to ${cleanUrl}`);
-        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await page.waitForTimeout(3000 + Math.random() * 2000);
+        // 7. Verify we are logged in by looking for global nav elements
+        const homeLink = page.getByRole('link', { name: 'Home', exact: true });
+        const meMenu = page.getByRole('button', { name: /Me/i }).first();
+        
+        const isLoggedIn = await homeLink.isVisible() || await meMenu.isVisible();
+        if (!isLoggedIn) {
+            console.warn(`[${requestId}] LinkedIn Outreach API: UI elements for logged-in state not found. Checking for challenges...`);
+            const securityCheck = page.getByText(/Security Check/i);
+            if (await securityCheck.isVisible()) {
+                await page.screenshot({ path: screenshotPath });
+                return NextResponse.json({ success: false, error: 'SESSION_CHALLENGED', screenshot: screenshotPath }, { status: 403 });
+            }
+        }
 
         // 8. Resilient Profile Verification
         const nameHeader = page.getByRole(SELECTORS.profile.name.role, { level: SELECTORS.profile.name.level });
         if (!(await nameHeader.isVisible())) {
+            console.error(`[${requestId}] LinkedIn Outreach API: Profile name header not found`);
             await page.screenshot({ path: screenshotPath });
             return NextResponse.json({ success: false, error: 'PROFILE_NOT_LOADED', screenshot: screenshotPath }, { status: 404 });
         }

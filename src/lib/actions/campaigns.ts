@@ -55,21 +55,26 @@ export async function toggleCampaignStatus(campaignId: string, currentStatus: st
   if (newStatus === 'Active') {
     try {
       const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-      const n8nApiKey = process.env.N8N_WEBHOOK_API_KEY;
+      
+      if (n8nWebhookUrl) {
+        // Construct the full webhook URL if it's just the base
+        const fullUrl = n8nWebhookUrl.endsWith('/') 
+          ? `${n8nWebhookUrl}webhook/campaign-trigger` 
+          : `${n8nWebhookUrl}/webhook/campaign-trigger`;
 
-      if (n8nWebhookUrl && n8nApiKey) {
-        await fetch(n8nWebhookUrl, {
+        await fetch(fullUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-KEY': n8nApiKey,
           },
           body: JSON.stringify({ 
+            type: 'CAMPAIGN_START',
             campaignId: updatedCampaign.id,
             userId: user.id,
             campaignType: updatedCampaign.type
           })
         });
+        console.log(`n8n Campaign Webhook triggered for ${updatedCampaign.name}`);
       }
     } catch (error) {
       console.error("Failed to trigger n8n from server action:", error)

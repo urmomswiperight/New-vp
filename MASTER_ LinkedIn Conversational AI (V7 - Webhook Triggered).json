@@ -1,0 +1,423 @@
+{
+  "name": "MASTER: LinkedIn Conversational AI (V7 - Webhook Triggered)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "dc9ded7d-92ee-4690-b516-b73856e26793",
+      "name": "10AM: 3-Day Nudge2",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        3216,
+        2368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Lead",
+        "limit": 25
+      },
+      "id": "ee1a6d79-ce46-4df5-a05e-0b973c03374f",
+      "name": "Supabase: Fetch Follow-ups1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3472,
+        2368
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "haoOEsP8Okk8QccR",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://new-vp.vercel.app/api/linkedin/follow-up",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"profileUrl\": \"{{ $('Supabase: Fetch Follow-ups1').item.json.linkedinUrl }}\",\n  \"message\": \"{{ $json.content }}\"\n}",
+        "options": {}
+      },
+      "id": "4d296fbf-8378-4541-9447-85010cbab990",
+      "name": "Vercel API: Send Nudge2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        4048,
+        2368
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v3.1:671b-cloud",
+          "mode": "list",
+          "cachedResultName": "deepseek-v3.1:671b-cloud"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ \"You are Robel's AI Assistant. A lead named \" + $json.body.firstName + \" just replied to our LinkedIn outreach. \\n\\nLead Message: '\" + $json.body.lastMessage + \"'\\n\\nYour Goal: Have a human-like conversation. Do NOT send a booking link yet unless they explicitly ask for a call or how it works. \\n\\nRules:\\n1. Be brief (max 40 words).\\n2. Ask one insightful question about their current lead gen or how they find clients now.\\n3. Use a helpful, non-salesy tone. \\n4. Context: We build AI outreach systems that process 5,000 leads/mo for $0/mo SaaS cost.\" }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        3328,
+        1904
+      ],
+      "id": "cc58dac9-deb9-4e23-b889-4b64e9522eed",
+      "name": "Message a model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "tmtnwIIzgLyacaiR",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "88c69bc2-95dc-4884-a2a0-31c7992d0227",
+      "name": "9AM: Start Outreach",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linkedin-inbound",
+        "options": {}
+      },
+      "id": "c5fa09c9-f22f-4122-9dfc-b482b11e4e9b",
+      "name": "Webhook: LinkedIn Inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        1904
+      ],
+      "webhookId": "linkedin-inbound"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://new-vp.vercel.app/api/linkedin/reply",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  JSON.stringify({\n    threadUrl: $node[\"Webhook: LinkedIn Inbound\"].json.body.threadUrl,\n    message: $node[\"AI: Conversational Agent\"].json.choices[0].message.content\n  })\n}}",
+        "options": {}
+      },
+      "id": "bac5ec7e-23ff-4e7f-b969-bafb302aff94",
+      "name": "Vercel API: Send Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3712,
+        1904
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-no-link",
+              "name": "personalizedMessage",
+              "value": "={{ $json.metadata?.draft || (\"Hi \" + $json.firstName + \", I saw your work at \" + $json.company + \". We help founders scale outreach using AI—would love to connect!\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d31ceaa4-5494-4c9c-9441-c4c0c204d96f",
+      "name": "Construct Icebreaker (No Link)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3808,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://new-vp.vercel.app/api/linkedin/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  JSON.stringify({\n    profileUrl: $('Split In Batches').item.json.linkedinUrl,\n    message: $json.personalizedMessage\n  })\n}}",
+        "options": {}
+      },
+      "id": "8b57af23-3138-4265-9f6e-acb1aa49dade",
+      "name": "Vercel API: Send Connection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        4064,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a47bb34e-03b4-46c1-9bac-e76ea881afe9",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Lead",
+        "limit": 25
+      },
+      "id": "d8080626-65ac-46c6-8c6c-9b26c7e88db9",
+      "name": "Supabase: Fetch 25 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        1504
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "haoOEsP8Okk8QccR",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 45,
+        "unit": "seconds"
+      },
+      "id": "07a36e98-eeae-47c0-be32-d766807188ec",
+      "name": "Wait 45s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        4304,
+        1504
+      ],
+      "webhookId": "ea06c182-8cf0-416c-be37-ff30d26d3c5e"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v3.1:671b-cloud",
+          "mode": "list",
+          "cachedResultName": "deepseek-v3.1:671b-cloud"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ \"Act as a world-class LinkedIn outreach expert. Using the insights from the Email Marketing Bible (Optimal length: 50-125 words, Soft CTA, PAS Framework), write a personalized follow-up message for \" + $json.firstName + \". \\n\\nContext: They are at \" + $json.company + \" and we previously reached out about AI lead gen automation. \\n\\nRules:\\n1. Focus on a specific problem (Problem-Agitate-Solution).\\n2. Keep it under 100 words.\\n3. Use a soft, interest-based CTA: 'Worth a quick chat? Book a slot here: https://calendar.google.com/calendar/u/1/r/week?pli=1'.\\n4. Do NOT sound like a bot.\" }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        2368
+      ],
+      "id": "ed00f688-3e53-409b-a1a1-47aa4674cd8e",
+      "name": "Message a model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "tmtnwIIzgLyacaiR",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Supabase: Fetch Follow-ups1": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Send Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "10AM: 3-Day Nudge2": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch Follow-ups1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9AM: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch 25 Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: LinkedIn Inbound": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch 25 Leads": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Construct Icebreaker (No Link)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct Icebreaker (No Link)": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Send Connection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vercel API: Send Connection": {
+      "main": [
+        [
+          {
+            "node": "Wait 45s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Send Nudge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5eaa198f-fc54-4374-a79b-f721e92a51d5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "25dbeefd104401de6057426dac9740ab9fec6da0e0c1573368d9b07a295a3b70"
+  },
+  "id": "PBrGgrIDeRRXJv5S",
+  "tags": []
+}

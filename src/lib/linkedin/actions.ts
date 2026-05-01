@@ -143,6 +143,13 @@ export async function sendMessage(page: Page, message: string): Promise<{ succes
 async function typeHumanLike(page: Page, locator: any, text: string) {
     await locator.focus();
     for (const char of text) {
-        await page.keyboard.type(char, { delay: 40 + Math.random() * 60 });
+        // Randomize delay between 60ms and 150ms
+        const delay = 60 + Math.random() * 90;
+        await page.keyboard.type(char, { delay });
+        
+        // Occasionally pause to mimic a human "thinking" or correcting
+        if (Math.random() < 0.05) {
+            await page.waitForTimeout(500 + Math.random() * 500);
+        }
     }
 }

@@ -1,0 +1,456 @@
+{
+  "name": "MASTER: LinkedIn Sales Machine (V5) - Full Cycle - Fixed JSON",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-9am-outreach",
+      "name": "9AM: Start Outreach",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "id": "trigger-2hr-inbox",
+      "name": "Every 2 Hours: Scan Replies",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/check-inbox",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "api-scan-replies",
+      "name": "Vercel API: Scan Inbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        50,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasNewMessages }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-replies",
+      "name": "Any New Replies?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        300,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "tableName": "Lead",
+        "id": "={{ $json.leadId }}",
+        "fields": {
+          "status": "Replied",
+          "replied": true
+        }
+      },
+      "id": "supabase-update-replied",
+      "name": "Supabase: Mark Replied",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        550,
+        450
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-personalization",
+              "name": "personalizedMessage",
+              "value": "={{ ($json.metadata?.draft || (\"Hi \" + $json.firstName + \", I saw your work at \" + $json.company + \". We help founders scale outreach using AI.\")) + \" Worth a quick chat? Book a slot here: https://calendar.google.com/calendar/u/1/r/week?pli=1\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "edit-message",
+      "name": "Construct Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        500,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  JSON.stringify({\n    profileUrl: $('Split In Batches').item.json.linkedinUrl,\n    message: $json.personalizedMessage\n  })\n}}",
+        "options": {}
+      },
+      "id": "api-outreach",
+      "name": "Vercel API: Send Connection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        750,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-in-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        300,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "tableName": "Lead",
+        "limit": 25,
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "Drafted"
+            }
+          ]
+        }
+      },
+      "id": "supabase-fetch-leads",
+      "name": "Supabase: Fetch 25 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        50,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 45,
+        "unit": "seconds"
+      },
+      "id": "wait-node",
+      "name": "Wait 45s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "trigger-10am-nudge",
+      "name": "10AM: 3-Day Nudge",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "tableName": "Lead",
+        "limit": 10,
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "Contacted"
+            },
+            {
+              "key": "replied",
+              "value": false
+            }
+          ]
+        }
+      },
+      "id": "supabase-fetch-followups",
+      "name": "Supabase: Fetch Follow-ups",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        50,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Supabase-Credential-ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "prompt": "={{ \"Act as a world-class LinkedIn outreach expert. Using the insights from the Email Marketing Bible (Optimal length: 50-125 words, Soft CTA, PAS Framework), write a personalized follow-up message for \" + $json.firstName + \". \\n\\nContext: They are at \" + $json.company + \" and we previously reached out about AI lead gen automation. \\n\\nRules:\\n1. Focus on a specific problem (Problem-Agitate-Solution).\\n2. Keep it under 100 words.\\n3. Use a soft, interest-based CTA: 'Worth a quick chat? Book a slot here: https://calendar.google.com/calendar/u/1/r/week?pli=1'.\\n4. Do NOT sound like a bot.\" }}",
+        "options": {
+          "temperature": 0.7
+        }
+      },
+      "id": "ai-followup-generator",
+      "name": "AI: Generate EMB Follow-up",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "OpenAI-Credential-ID",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-vercel-url.com/api/linkedin/follow-up",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "YOUR_SECRET_PASSWORD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  JSON.stringify({\n    profileUrl: $json.linkedinUrl,\n    message: $json.text\n  })\n}}",
+        "options": {}
+      },
+      "id": "api-follow-up",
+      "name": "Vercel API: Send Nudge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        500,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "9AM: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch 25 Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 2 Hours: Scan Replies": {
+      "main": [
+        [
+          {
+            "node": "api-scan-replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "api-scan-replies": {
+      "main": [
+        [
+          {
+            "node": "Any New Replies?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Replies?": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch 25 Leads": {
+      "main": [
+        [
+          {
+            "node": "split-in-batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split-in-batches": {
+      "main": [
+        [
+          {
+            "node": "edit-message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "edit-message": {
+      "main": [
+        [
+          {
+            "node": "api-outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "api-outreach": {
+      "main": [
+        [
+          {
+            "node": "wait-node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wait-node": {
+      "main": [
+        [
+          {
+            "node": "split-in-batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "trigger-10am-nudge": {
+      "main": [
+        [
+          {
+            "node": "supabase-fetch-followups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "supabase-fetch-followups": {
+      "main": [
+        [
+          {
+            "node": "ai-followup-generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ai-followup-generator": {
+      "main": [
+        [
+          {
+            "node": "api-follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

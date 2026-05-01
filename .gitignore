@@ -45,3 +45,5 @@ next-env.d.ts
 logs
 *.png
 *.log
+
+.vercel

@@ -1,0 +1,332 @@
+{
+  "name": "MASTER: LinkedIn Conversational AI (V10 - Human Voice)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "88c69bc2-95dc-4884-a2a0-31c7992d0227",
+      "name": "9AM: Start Outreach",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        3100,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Lead",
+        "limit": 25,
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "value": "Drafted"
+            }
+          ]
+        }
+      },
+      "id": "d8080626-65ac-46c6-8c6c-9b26c7e88db9",
+      "name": "Supabase: Fetch 25 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        1500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "haoOEsP8Okk8QccR",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a47bb34e-03b4-46c1-9bac-e76ea881afe9",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [
+        3550,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-no-link",
+              "name": "personalizedMessage",
+              "value": "={{ $json.metadata?.draft || (\"Hi \" + $json.firstName + \", I saw your work at \" + $json.company + \". I'm a CS & Data Science guy building AI outreach tools for founders—would love to connect!\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d31ceaa4-5494-4c9c-9441-c4c0c204d96f",
+      "name": "Construct Icebreaker",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3750,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://new-vp.vercel.app/api/linkedin/outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  JSON.stringify({\n    profileUrl: $('Split In Batches').item.json.linkedinUrl,\n    message: $json.personalizedMessage\n  })\n}}",
+        "options": {}
+      },
+      "id": "8b57af23-3138-4265-9f6e-acb1aa49dade",
+      "name": "Vercel API: Send Connection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        4000,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "UPDATE",
+        "tableName": "Lead",
+        "id": "={{ $('Split In Batches').item.json.id }}",
+        "fields": {
+          "status": "Contacted (LinkedIn)"
+        }
+      },
+      "id": "mark-as-contacted",
+      "name": "Supabase: Mark Contacted",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4250,
+        1500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "haoOEsP8Okk8QccR",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 45,
+        "unit": "seconds"
+      },
+      "id": "07a36e98-eeae-47c0-be32-d766807188ec",
+      "name": "Wait 45s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        4500,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linkedin-inbound",
+        "options": {}
+      },
+      "id": "c5fa09c9-f22f-4122-9dfc-b482b11e4e9b",
+      "name": "Webhook: LinkedIn Inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        3100,
+        1900
+      ],
+      "webhookId": "linkedin-inbound"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v3.1:671b-cloud",
+          "mode": "list",
+          "cachedResultName": "deepseek-v3.1:671b-cloud"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ \"You are Robel's AI Assistant. Robel is a CS & Data Science expert who builds custom AI outreach systems. \\n\\nA lead named \" + $json.body.firstName + \" just replied to our LinkedIn message. \\n\\nLead Message: '\" + $json.body.lastMessage + \"'\\n\\nYour Goal: Be genuinely helpful. Ask about their current lead gen process. Do NOT send a booking link yet unless they ask. \\n\\nRules:\\n1. Max 40 words.\\n2. Sound like a sharp technical assistant, not a bot.\\n3. Ask: 'Curious, how are you guys handling outreach right now? Manual or using some tools?'\" }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        3350,
+        1900
+      ],
+      "id": "cc58dac9-deb9-4e23-b889-4b64e9522eed",
+      "name": "AI: Conversational Assistant",
+      "credentials": {
+        "ollamaApi": {
+          "id": "tmtnwIIzgLyacaiR",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://new-vp.vercel.app/api/linkedin/reply",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  JSON.stringify({\n    threadUrl: $node[\"Webhook: LinkedIn Inbound\"].json.body.threadUrl,\n    message: $node[\"AI: Conversational Assistant\"].json.choices[0].message.content\n  })\n}}",
+        "options": {}
+      },
+      "id": "bac5ec7e-23ff-4e7f-b969-bafb302aff94",
+      "name": "Vercel API: Send Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3650,
+        1900
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "9AM: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch 25 Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch 25 Leads": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Construct Icebreaker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct Icebreaker": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Send Connection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vercel API: Send Connection": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Mark Contacted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Mark Contacted": {
+      "main": [
+        [
+          {
+            "node": "Wait 45s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 45s": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: LinkedIn Inbound": {
+      "main": [
+        [
+          {
+            "node": "AI: Conversational Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Conversational Assistant": {
+      "main": [
+        [
+          {
+            "node": "Vercel API: Send Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -142,10 +142,10 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
                         }
                     });
 
-                    if (lead) {
+                        if (lead) {
                         const { sentiment } = await classifyMessage(lastMessageText);
                         
-                        await prisma.lead.update({
+                        const updatedLead = await prisma.lead.update({
                             where: { id: lead.id },
                             data: { 
                                 status: sentiment === 'NEGATIVE' ? 'Opted Out' : 'Replied',
@@ -156,6 +156,27 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
 
                         repliedLeads.push({ email: lead.email, sentiment, message: lastMessageText });
                         console.log(`Inbox Check: Updated ${name} (${sentiment}).`);
+
+                        // --- NEW: Trigger n8n Webhook for Conversational AI ---
+                        try {
+                            const n8nWebhookUrl = process.env.N8N_INBOUND_WEBHOOK_URL;
+                            if (n8nWebhookUrl) {
+                                await axios.post(n8nWebhookUrl, {
+                                    type: 'LINKEDIN_MESSAGE',
+                                    leadId: updatedLead.id,
+                                    firstName: updatedLead.firstName,
+                                    company: updatedLead.company,
+                                    lastMessage: lastMessageText,
+                                    sentiment: sentiment,
+                                    threadUrl: `https://www.linkedin.com/messaging/` // Playwright will find the thread
+                                }, {
+                                    headers: { 'Content-Type': 'application/json' }
+                                });
+                                console.log(`n8n Webhook triggered for ${name}`);
+                            }
+                        } catch (webhookErr: any) {
+                            console.error('Failed to trigger n8n webhook:', webhookErr.message);
+                        }
                     }
                 }
             } catch (err) {

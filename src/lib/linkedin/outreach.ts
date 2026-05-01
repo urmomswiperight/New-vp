@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { connectToBrowserless } from '@/lib/browser';
+import { connectToBrowserless } from '../browser';
 import { injectFullStorageState, checkLoginHealth } from './session';
 import { SELECTORS } from './selectors';
 import { sendConnectionRequest, sendMessage } from './actions';
@@ -88,6 +88,17 @@ export async function runLinkedInOutreach(
                 error: `SESSION_UNHEALTHY: ${health}`, 
                 screenshot: screenshotPath 
             };
+        }
+
+        // 4.5. Human-like Browsing Phase (Warming)
+        console.log('LinkedIn Outreach: Warming up by browsing feed...');
+        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(2000 + Math.random() * 2000);
+        
+        // Scroll around to trigger activity
+        for (let i = 0; i < 3; i++) {
+            await page.mouse.wheel(0, 500 + Math.random() * 500);
+            await page.waitForTimeout(1000 + Math.random() * 1000);
         }
 
         // 5. Navigation & Profile Load

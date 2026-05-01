@@ -2,9 +2,9 @@ import type { BrowserContext, Page } from 'playwright-core';
 
 /**
  * Injects full Playwright storageState JSON into the browser context.
- * Prioritizes cookies as per research.
+ * Prioritizes cookies. localStorage injection is now optional to reduce noise.
  */
-export async function injectFullStorageState(context: BrowserContext, sessionJson: string) {
+export async function injectFullStorageState(context: BrowserContext, sessionJson: string, includeLocalStorage: boolean = false) {
     try {
         const storageState = JSON.parse(sessionJson);
         const cookies = storageState.cookies || [];
@@ -20,25 +20,32 @@ export async function injectFullStorageState(context: BrowserContext, sessionJso
                 sameSite: (c.sameSite?.toLowerCase() === 'strict' ? 'Strict' : (c.sameSite?.toLowerCase() === 'lax' ? 'Lax' : 'None')) as any
             }));
             await context.addCookies(cleanCookies);
+            console.log(`✅ Injected ${cleanCookies.length} cookies.`);
         }
 
-        // Inject LocalStorage (origins)
-        const origins = storageState.origins || [];
-        if (origins.length > 0) {
-            // We need a page to inject localStorage
-            const page = await context.newPage();
-            for (const origin of origins) {
-                await page.goto(origin.origin, { waitUntil: 'commit' });
-                await page.evaluate((data) => {
-                    for (const item of data) {
-                        localStorage.setItem(item.name, item.value);
+        // Inject LocalStorage (origins) - ONLY if explicitly requested
+        if (includeLocalStorage) {
+            const origins = storageState.origins || [];
+            if (origins.length > 0) {
+                const page = await context.newPage();
+                for (const origin of origins) {
+                    try {
+                        console.log(`Injecting localStorage for ${origin.origin}...`);
+                        await page.goto(origin.origin, { waitUntil: 'commit', timeout: 15000 });
+                        await page.evaluate((data) => {
+                            for (const item of data) {
+                                localStorage.setItem(item.name, item.value);
+                            }
+                        }, origin.localStorage);
+                    } catch (e) {
+                        console.warn(`Failed to inject localStorage for ${origin.origin}:`, e);
                     }
-                }, origin.localStorage);
+                }
+                await page.close();
             }
-            await page.close();
         }
         
-        return { success: true, cookieCount: cookies.length, originCount: origins.length };
+        return { success: true, cookieCount: cookies.length };
     } catch (e: any) {
         console.error('Failed to inject storage state:', e.message);
         return { success: false, error: e.message };
