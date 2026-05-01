@@ -9,5 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Expose CDP port
 EXPOSE 3000
 
-# Start Playwright in server mode using the PORT environment variable
-CMD ["sh", "-c", "npx playwright run-server --port $PORT --host 0.0.0.0"]
+# Copy health check wrapper
+COPY health-check.js .
+
+# Start the health check wrapper that manages Playwright
+CMD ["node", "health-check.js"]
