@@ -12,4 +12,4 @@ jobs:
     steps:
       - name: Ping Browserless
         run: |
-          curl -I https://production-sfo.chrome-latest-3tox.onrender.com/
+          curl -I -H "Authorization: Imgonnacummmmm" https://production-sfo.chrome-latest-3tox.onrender.com/
