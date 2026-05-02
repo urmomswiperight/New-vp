@@ -2,8 +2,8 @@ name: Ping Browserless Service
 
 on:
   schedule:
-    # Runs every minute
-    - cron: '* * * * *'
+    # Runs every 3 minutes
+    - cron: '*/3 * * * *'
   workflow_dispatch:
 
 jobs:
