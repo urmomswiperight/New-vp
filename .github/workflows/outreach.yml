@@ -1,0 +1,32 @@
+name: LinkedIn Outreach Automation
+
+on:
+  schedule:
+    # Runs at 09:00 AM UTC every day
+    - cron: '0 9 * * *'
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  outreach:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium
+
+      - name: Run Outreach Script
+        env:
+          LI_SESSION: ${{ secrets.LI_SESSION }}
+          OUTREACH_SECRET: ${{ secrets.OUTREACH_SECRET }}
+          # Add any other required env vars here
+        run: npx ts-node scripts/test-outreach.ts
