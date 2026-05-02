@@ -80,7 +80,14 @@ export async function POST(req: Request) {
         const currentUrl = page.url();
         if (currentUrl.includes('/login') || currentUrl.includes('/authwall')) {
             console.error(`[${requestId}] LinkedIn Outreach API: Session invalid (redirected to ${currentUrl})`);
-            await page.screenshot({ path: screenshotPath, timeout: 90000 });
+            // Capture screenshot with protection against closed contexts
+            try {
+                if (!page.isClosed()) {
+                    await page.screenshot({ path: screenshotPath, timeout: 60000 });
+                }
+            } catch (e) {
+                console.error('Screenshot failed (browser likely closed):', e);
+            }
             return NextResponse.json({ 
                 success: false, 
                 error: 'SESSION_INVALID', 
@@ -98,7 +105,14 @@ export async function POST(req: Request) {
             console.warn(`[${requestId}] LinkedIn Outreach API: UI elements for logged-in state not found. Checking for challenges...`);
             const securityCheck = page.getByText(/Security Check/i);
             if (await securityCheck.isVisible()) {
-                await page.screenshot({ path: screenshotPath, timeout: 90000 });
+                // Capture screenshot with protection against closed contexts
+            try {
+                if (!page.isClosed()) {
+                    await page.screenshot({ path: screenshotPath, timeout: 60000 });
+                }
+            } catch (e) {
+                console.error('Screenshot failed (browser likely closed):', e);
+            }
                 return NextResponse.json({ success: false, error: 'SESSION_CHALLENGED', screenshot: screenshotPath }, { status: 403 });
             }
         }
@@ -107,7 +121,14 @@ export async function POST(req: Request) {
         const nameHeader = page.getByRole(SELECTORS.profile.name.role, { level: SELECTORS.profile.name.level });
         if (!(await nameHeader.isVisible())) {
             console.error(`[${requestId}] LinkedIn Outreach API: Profile name header not found`);
-            await page.screenshot({ path: screenshotPath, timeout: 90000 });
+            // Capture screenshot with protection against closed contexts
+            try {
+                if (!page.isClosed()) {
+                    await page.screenshot({ path: screenshotPath, timeout: 60000 });
+                }
+            } catch (e) {
+                console.error('Screenshot failed (browser likely closed):', e);
+            }
             return NextResponse.json({ success: false, error: 'PROFILE_NOT_LOADED', screenshot: screenshotPath }, { status: 404 });
         }
 
@@ -119,7 +140,14 @@ export async function POST(req: Request) {
             fs.writeFileSync(limitFile, JSON.stringify(dailyData));
             return NextResponse.json({ success: true, status: 'Sent', countToday: dailyData.count });
         } else {
-            await page.screenshot({ path: screenshotPath, timeout: 90000 });
+            // Capture screenshot with protection against closed contexts
+            try {
+                if (!page.isClosed()) {
+                    await page.screenshot({ path: screenshotPath, timeout: 60000 });
+                }
+            } catch (e) {
+                console.error('Screenshot failed (browser likely closed):', e);
+            }
             return NextResponse.json({ success: false, error: result.error, screenshot: screenshotPath }, { status: 500 });
         }
 
