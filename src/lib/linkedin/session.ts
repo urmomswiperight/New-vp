@@ -104,3 +104,33 @@ export async function checkLoginHealth(page: Page): Promise<'LOGGED_IN' | 'LOGGE
         return 'LOGGED_OUT';
     }
 }
+
+/**
+ * Performs automated login using provided credentials.
+ */
+export async function performLogin(page: Page): Promise<boolean> {
+    const username = process.env.LI_USERNAME;
+    const password = process.env.LI_PASSWORD;
+
+    if (!username || !password) {
+        console.error('❌ Missing LI_USERNAME or LI_PASSWORD for automated login.');
+        return false;
+    }
+
+    try {
+        console.log('🚀 Attempting automated login...');
+        await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
+        
+        await page.fill('#username', username);
+        await page.fill('#password', password);
+        await page.click('button[type="submit"]');
+        
+        // Wait for potential challenge or navigation
+        await page.waitForLoadState('networkidle', { timeout: 30000 });
+        
+        return true;
+    } catch (e: any) {
+        console.error('❌ Automated login failed:', e.message);
+        return false;
+    }
+}
