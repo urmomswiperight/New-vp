@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToBrowserless, FIXED_USER_AGENT } from '@/lib/browser';
-import { injectFullStorageState, checkLoginHealth } from '@/lib/linkedin/session';
+import { injectFullStorageState, checkLoginHealth, performLogin } from '@/lib/linkedin/session';
 import { sendConnectionRequest } from '@/lib/linkedin/actions';
 import { SELECTORS } from '@/lib/linkedin/selectors';
 import path from 'path';
@@ -79,21 +79,17 @@ export async function POST(req: Request) {
 
         const currentUrl = page.url();
         if (currentUrl.includes('/login') || currentUrl.includes('/authwall')) {
-            console.error(`[${requestId}] LinkedIn Outreach API: Session invalid (redirected to ${currentUrl})`);
-            // Capture screenshot with protection against closed contexts
-            try {
-                if (!page.isClosed()) {
-                    await page.screenshot({ path: screenshotPath, timeout: 60000 });
-                }
-            } catch (e) {
-                console.error('Screenshot failed (browser likely closed):', e);
+            console.warn(`[${requestId}] LinkedIn Outreach API: Session invalid. Attempting automated login...`);
+            const loggedIn = await performLogin(page);
+            if (!loggedIn) {
+                 await page.screenshot({ path: screenshotPath, timeout: 60000 });
+                 return NextResponse.json({ 
+                     success: false, 
+                     error: 'SESSION_INVALID', 
+                     details: `Redirected to ${currentUrl} and automated login failed.`,
+                     screenshot: screenshotPath 
+                 }, { status: 403 });
             }
-            return NextResponse.json({ 
-                success: false, 
-                error: 'SESSION_INVALID', 
-                details: `Redirected to ${currentUrl}`,
-                screenshot: screenshotPath 
-            }, { status: 403 });
         }
 
         // 7. Verify we are logged in by looking for global nav elements
