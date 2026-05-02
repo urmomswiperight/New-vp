@@ -73,44 +73,24 @@ export async function POST(req: Request) {
         let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
         console.log(`[${requestId}] LinkedIn Outreach API: Navigating to ${cleanUrl}`);
         
-        // Go directly to profile. If we're logged out, LinkedIn will redirect to /authwall or /login
+        // Go directly to profile. 
+        console.log(`[${requestId}] Navigating to profile...`);
         await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
-        await page.waitForTimeout(5000); // Increased wait for stability
+        
+        // Wait for page hydration
+        await page.waitForTimeout(5000); 
 
-        const currentUrl = page.url();
-        if (currentUrl.includes('/login') || currentUrl.includes('/authwall')) {
-            console.warn(`[${requestId}] LinkedIn Outreach API: Session invalid. Attempting automated login...`);
+        // 7. Verify login (Resiliently)
+        console.log(`[${requestId}] Verifying login status...`);
+        const isLoggedIn = await checkLoginHealth(page);
+        if (isLoggedIn === 'LOGGED_OUT') {
+            console.warn(`[${requestId}] Session invalid. Attempting automated login...`);
             const loggedIn = await performLogin(page);
             if (!loggedIn) {
-                 await page.screenshot({ path: screenshotPath, timeout: 60000 });
-                 return NextResponse.json({ 
-                     success: false, 
-                     error: 'SESSION_INVALID', 
-                     details: `Redirected to ${currentUrl} and automated login failed.`,
-                     screenshot: screenshotPath 
-                 }, { status: 403 });
+                 return NextResponse.json({ success: false, error: 'LOGIN_FAILED' }, { status: 403 });
             }
-        }
-
-        // 7. Verify we are logged in by looking for global nav elements
-        const homeLink = page.getByRole('link', { name: 'Home', exact: true });
-        const meMenu = page.getByRole('button', { name: /Me/i }).first();
-        
-        const isLoggedIn = await homeLink.isVisible() || await meMenu.isVisible();
-        if (!isLoggedIn) {
-            console.warn(`[${requestId}] LinkedIn Outreach API: UI elements for logged-in state not found. Checking for challenges...`);
-            const securityCheck = page.getByText(/Security Check/i);
-            if (await securityCheck.isVisible()) {
-                // Capture screenshot with protection against closed contexts
-            try {
-                if (!page.isClosed()) {
-                    await page.screenshot({ path: screenshotPath, timeout: 60000 });
-                }
-            } catch (e) {
-                console.error('Screenshot failed (browser likely closed):', e);
-            }
-                return NextResponse.json({ success: false, error: 'SESSION_CHALLENGED', screenshot: screenshotPath }, { status: 403 });
-            }
+        } else if (isLoggedIn === 'CHALLENGED') {
+            return NextResponse.json({ success: false, error: 'SESSION_CHALLENGED' }, { status: 403 });
         }
 
         // 8. Resilient Profile Verification
