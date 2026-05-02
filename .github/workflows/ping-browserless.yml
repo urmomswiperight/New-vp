@@ -1,0 +1,15 @@
+name: Ping Browserless Service
+
+on:
+  schedule:
+    # Runs every minute
+    - cron: '* * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Browserless
+        run: |
+          curl -I https://production-sfo.chrome-latest-3tox.onrender.com/
