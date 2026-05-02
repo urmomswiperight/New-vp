@@ -12,4 +12,4 @@ jobs:
     steps:
       - name: Ping Browserless
         run: |
-          node -e "const https = require('https'); https.get('https://chrome-latest-3tox.onrender.com/', { headers: { 'Authorization': 'Imgonnacummmmm' } }, (res) => { console.log('Status Code:', res.statusCode); }).on('error', (e) => { console.error('Error:', e.message); process.exit(1); });"
+          node -e "const https = require('https'); https.get('https://chrome-latest-3tox.onrender.com/', { headers: { 'Authorization': 'Bearer Imgonnacummmmm' } }, (res) => { console.log('Status Code:', res.statusCode); }).on('error', (e) => { console.error('Error:', e.message); process.exit(1); });"
