@@ -69,28 +69,30 @@ export async function POST(req: Request) {
     const screenshotPath = path.join(logsDir, `linkedin-api-error-${timestamp}.png`);
 
     try {
-        // 6. Navigation + Implicit Health Check
-        let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
-        console.log(`[${requestId}] LinkedIn Outreach API: Navigating to ${cleanUrl}`);
-        
-        // Go directly to profile. 
-        console.log(`[${requestId}] Navigating to profile...`);
-        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
-        
-        // Wait for page hydration
-        await page.waitForTimeout(5000); 
-
-        // 7. Verify login (Resiliently)
+        // 6. Login Check (First thing)
         console.log(`[${requestId}] Verifying login status...`);
-        const isLoggedIn = await checkLoginHealth(page);
-        if (isLoggedIn === 'LOGGED_OUT') {
+        let loginStatus = await checkLoginHealth(page);
+        
+        if (loginStatus === 'LOGGED_OUT') {
             console.warn(`[${requestId}] Session invalid. Attempting automated login...`);
             const loggedIn = await performLogin(page);
             if (!loggedIn) {
                  return NextResponse.json({ success: false, error: 'LOGIN_FAILED' }, { status: 403 });
             }
-        } else if (isLoggedIn === 'CHALLENGED') {
+        } else if (loginStatus === 'CHALLENGED') {
             return NextResponse.json({ success: false, error: 'SESSION_CHALLENGED' }, { status: 403 });
+        }
+
+        // 7. Navigation to Profile
+        let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
+        console.log(`[${requestId}] Navigating to profile: ${cleanUrl}`);
+        
+        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 90000 });
+        await page.waitForTimeout(3000); // Small wait for profile to settle
+
+        // Double check we didn't get kicked out to login during navigation
+        if (page.url().includes('/login') || page.url().includes('/authwall')) {
+             return NextResponse.json({ success: false, error: 'SESSION_EXPIRED_DURING_NAV' }, { status: 403 });
         }
 
         // 8. Resilient Profile Verification

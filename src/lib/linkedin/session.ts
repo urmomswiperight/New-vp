@@ -59,6 +59,16 @@ export async function injectFullStorageState(context: BrowserContext, sessionJso
  */
 export async function checkLoginHealth(page: Page): Promise<'LOGGED_IN' | 'LOGGED_OUT' | 'CHALLENGED'> {
     try {
+        // Block heavy resources for faster, low-memory health check
+        await page.route('**/*', (route) => {
+            const type = route.request().resourceType();
+            if (['image', 'font', 'media'].includes(type)) {
+                route.abort();
+            } else {
+                route.continue();
+            }
+        });
+
         // Use domcontentloaded for speed, as recommended in research
         await page.goto('https://www.linkedin.com/feed/', { 
             waitUntil: 'domcontentloaded', 

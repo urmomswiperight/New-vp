@@ -13,10 +13,8 @@ try {
     const stealth = StealthPlugin();
     const userPrefs = UserPreferencesPlugin();
     
-    if (stealth.dependencies) {
-        stealth.dependencies = new Set();
-    }
-    
+    // Some versions of StealthPlugin have dependencies as read-only or a getter
+    // We just register them in order
     plugin.use(userPrefs);
     plugin.use(stealth);
     
