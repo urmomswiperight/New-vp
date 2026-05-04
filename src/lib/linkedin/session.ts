@@ -118,19 +118,54 @@ export async function performLogin(page: Page): Promise<boolean> {
     }
 
     try {
-        console.log('🚀 Attempting automated login...');
+        console.log(`🚀 Attempting automated login for: ${username.substring(0, 3)}...`);
         await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
         
-        await page.fill('#username', username);
-        await page.fill('#password', password);
-        await page.click('button[type="submit"]');
+        // Check for username field (using multiple common selectors)
+        const usernameField = page.locator('#username, input[name="session_key"], #session_key').first();
+        const passwordField = page.locator('#password, input[name="session_password"], #session_password').first();
+        const submitButton = page.locator('button[type="submit"], .login__form_action_container button').first();
+
+        if (!(await usernameField.isVisible())) {
+            console.error('❌ Could not find username field on login page.');
+            return false;
+        }
+
+        await usernameField.fill(username);
+        await passwordField.fill(password);
         
-        // Wait for potential challenge or navigation
-        await page.waitForLoadState('networkidle', { timeout: 30000 });
+        console.log('Submitting login form...');
+        await submitButton.click();
         
-        return true;
+        // Wait for potential challenge, error, or navigation
+        await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+        
+        // Check for common error indicators
+        const errorAlert = page.locator('.error-for-password, #error-for-username, [role="alert"]').first();
+        if (await errorAlert.isVisible()) {
+            const errorText = await errorAlert.innerText();
+            console.error(`❌ LinkedIn Login Error: ${errorText}`);
+            return false;
+        }
+
+        // Check if we are being challenged (2FA, CAPTCHA)
+        const currentUrl = page.url();
+        if (currentUrl.includes('/checkpoint/') || currentUrl.includes('challenge')) {
+            console.warn('⚠️ LinkedIn Login: Security challenge (2FA/CAPTCHA) detected. Manual intervention required.');
+            return false;
+        }
+
+        // Final verification
+        const status = await checkLoginHealth(page);
+        if (status === 'LOGGED_IN') {
+            console.log('✅ Automated login successful!');
+            return true;
+        }
+
+        console.error(`❌ Automated login failed. Current URL: ${currentUrl}`);
+        return false;
     } catch (e: any) {
-        console.error('❌ Automated login failed:', e.message);
+        console.error('❌ Automated login Exception:', e.message);
         return false;
     }
 }
