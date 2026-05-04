@@ -119,6 +119,17 @@ export async function performLogin(page: Page): Promise<boolean> {
 
     try {
         console.log(`🚀 Attempting automated login for: ${username.substring(0, 3)}...`);
+        
+        // Block heavy resources to save memory on Render free tier
+        await page.route('**/*', (route) => {
+            const type = route.request().resourceType();
+            if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+                route.abort();
+            } else {
+                route.continue();
+            }
+        });
+
         await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
         
         // Check for username field (using multiple common selectors)
