@@ -158,21 +158,15 @@ export async function performLogin(page: Page): Promise<boolean> {
         console.log('Submitting login form...');
         await submitButton.click();
         
-        // Wait for potential challenge, error, or navigation
-        await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+        // Wait longer for the dashboard to load or challenge to appear
+        await page.waitForTimeout(10000);
         
-        // Check for common error indicators
-        const errorAlert = page.locator('.error-for-password, #error-for-username, [role="alert"]').first();
-        if (await errorAlert.isVisible()) {
-            const errorText = await errorAlert.innerText();
-            console.error(`❌ LinkedIn Login Error: ${errorText}`);
-            return false;
-        }
-
         // Check if we are being challenged (2FA, CAPTCHA)
         const currentUrl = page.url();
-        if (currentUrl.includes('/checkpoint/') || currentUrl.includes('challenge')) {
-            console.warn('⚠️ LinkedIn Login: Security challenge (2FA/CAPTCHA) detected. Manual intervention required.');
+        console.log(`Current URL after login attempt: ${currentUrl}`);
+        
+        if (currentUrl.includes('/checkpoint/') || currentUrl.includes('challenge') || currentUrl.includes('/captcha')) {
+            console.warn('⚠️ LinkedIn Login: Security challenge (2FA/CAPTCHA) detected. Manual cookie refresh REQUIRED.');
             return false;
         }
 
