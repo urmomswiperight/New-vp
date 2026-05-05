@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 import axios from 'axios';
 import { chromium } from 'playwright-core';
+import { checkLoginHealth } from './linkedin/session';
 
 /**
  * FIXED_USER_AGENT is used to provide a consistent browser identity.
@@ -69,6 +70,15 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
         }
     }
     throw new Error('Failed to connect to Browserless.');
+}
+
+/**
+ * Verifies login state. 
+ * Re-exported for compatibility with older API routes.
+ */
+export async function checkSessionHealth(page: Page): Promise<boolean> {
+    const status = await checkLoginHealth(page);
+    return status === 'LOGGED_IN';
 }
 
 /**
