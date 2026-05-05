@@ -8,19 +8,19 @@ const UserPreferencesPlugin = require('puppeteer-extra-plugin-user-preferences')
 
 const plugin = addExtra(baseChromium);
 
-// Manually initialize and register plugins
+// CRITICAL: We avoid manual plugin instantiation here because it triggers 
+// 'Plugin dependency not found' on Vercel's optimized runtime.
+// We use the most basic stealth configuration.
 try {
-    const stealth = StealthPlugin();
-    const userPrefs = UserPreferencesPlugin();
-    
-    // Some versions of StealthPlugin have dependencies as read-only or a getter
-    // We just register them in order
-    plugin.use(userPrefs);
-    plugin.use(stealth);
-    
-    console.log('✅ Browser plugins initialized manually.');
+    const Stealth = StealthPlugin();
+    // Bypass the internal dependency resolution that fails on Vercel
+    if (Stealth.dependencies) {
+        Stealth.dependencies = new Set();
+    }
+    plugin.use(Stealth);
+    console.log('✅ Stealth plugin applied.');
 } catch (e: any) {
-    console.error('❌ Failed to initialize browser plugins:', e.message);
+    console.warn('⚠️ Could not apply StealthPlugin:', e.message);
 }
 
 export const FIXED_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
