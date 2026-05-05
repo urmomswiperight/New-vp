@@ -69,9 +69,20 @@ export async function POST(req: Request) {
     const screenshotPath = path.join(logsDir, `linkedin-api-error-${timestamp}.png`);
 
     try {
-        // 6. Login Check (First thing)
+        // 6. Login Check (First thing) - Wrapped in try-catch to handle immediate browser crashes
         console.log(`[${requestId}] Verifying login status...`);
-        let loginStatus = await checkLoginHealth(page);
+        let loginStatus: 'LOGGED_IN' | 'LOGGED_OUT' | 'CHALLENGED' = 'LOGGED_OUT';
+        
+        try {
+            loginStatus = await checkLoginHealth(page);
+        } catch (e: any) {
+            console.error(`[${requestId}] Health check crashed browser: ${e.message}`);
+            return NextResponse.json({ 
+                success: false, 
+                error: 'BROWSER_CRASHED_ON_INIT',
+                details: 'Render instance likely out of memory. Try manual cookie refresh.'
+            }, { status: 500 });
+        }
         
         if (loginStatus === 'LOGGED_OUT') {
             console.warn(`[${requestId}] Session invalid. Attempting automated login...`);
