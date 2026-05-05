@@ -1,28 +1,10 @@
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 import axios from 'axios';
-import { chromium as baseChromium } from 'playwright-core';
-import { addExtra } from 'playwright-extra';
+import { chromium } from 'playwright-core';
 
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const UserPreferencesPlugin = require('puppeteer-extra-plugin-user-preferences');
-
-const plugin = addExtra(baseChromium);
-
-// CRITICAL: We avoid manual plugin instantiation here because it triggers 
-// 'Plugin dependency not found' on Vercel's optimized runtime.
-// We use the most basic stealth configuration.
-try {
-    const Stealth = StealthPlugin();
-    // Bypass the internal dependency resolution that fails on Vercel
-    if (Stealth.dependencies) {
-        Stealth.dependencies = new Set();
-    }
-    plugin.use(Stealth);
-    console.log('✅ Stealth plugin applied.');
-} catch (e: any) {
-    console.warn('⚠️ Could not apply StealthPlugin:', e.message);
-}
-
+/**
+ * FIXED_USER_AGENT is used to provide a consistent browser identity.
+ */
 export const FIXED_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 /**
@@ -61,7 +43,8 @@ export async function scrapeWithScrapingBee(
 }
 
 /**
- * Connects to Browserless.io using Playwright
+ * Connects to Browserless.io using Vanilla Playwright (No Plugins)
+ * This is the most stable method for Vercel/Serverless environments.
  */
 export async function connectToBrowserless(maxRetries: number = 5): Promise<Browser> {
     const wssUrl = process.env.BROWSERLESS_WSS;
@@ -73,8 +56,6 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
     // If a token is provided in the URL, use it, otherwise add it as a query param
     const authUrl = wssUrl.includes('token=') ? wssUrl : `${wssUrl}?token=${process.env.BROWSERLESS_TOKEN || 'your-secret-token'}`;
 
-    const chromium = plugin;
-
     let retries = 0;
     while (retries < maxRetries) {
         try {
@@ -82,8 +63,9 @@ export async function connectToBrowserless(maxRetries: number = 5): Promise<Brow
             return await chromium.connectOverCDP(authUrl);
         } catch (e: any) {
             retries++;
+            console.warn(`Connection attempt ${retries} failed: ${e.message}`);
             if (retries >= maxRetries) throw e;
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
     }
     throw new Error('Failed to connect to Browserless.');
@@ -117,33 +99,5 @@ export async function injectLinkedInAuth(context: BrowserContext) {
         console.log(`✅ Injected ${cleanCookies.length} cookies.`);
     } catch (e: any) {
         console.error('❌ Cookie injection failed:', e.message);
-    }
-}
-
-/**
- * Verifies login state
- */
-export async function checkSessionHealth(page: Page): Promise<boolean> {
-    if (process.env.BYPASS_SESSION_HEALTH === 'true') return true;
-
-    try {
-        console.log('LinkedIn Health: Checking...');
-        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForTimeout(5000); 
-        
-        const html = await page.content();
-        const loggedIn = html.includes('feed-identity-module') || 
-                         html.includes('global-nav__me-photo') || 
-                         html.includes('Account Menu');
-
-        if (loggedIn) {
-            console.log('✅ Logged in.');
-            return true;
-        }
-
-        console.error('❌ Logged out or Authwall detected.');
-        return false;
-    } catch (e: any) {
-        return false;
     }
 }

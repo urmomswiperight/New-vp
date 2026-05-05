@@ -130,11 +130,17 @@ export async function POST(req: Request) {
         }
 
     } catch (err: any) {
-        await page.screenshot({ path: screenshotPath, timeout: 90000 }).catch(() => {});
-        return NextResponse.json({ success: false, error: err.message, screenshot: screenshotPath }, { status: 500 });
+        console.error(`[${requestId}] API Error:`, err.message);
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     } finally {
-        await context.close();
-        await browser.close();
+        // Safe cleanup
+        try {
+            if (context) await context.close().catch(() => {});
+            if (browser) await browser.close().catch(() => {});
+            console.log(`[${requestId}] Cleanup complete.`);
+        } catch (e) {
+            console.warn(`[${requestId}] Cleanup warning:`, e);
+        }
     }
 
   } catch (error: any) {
