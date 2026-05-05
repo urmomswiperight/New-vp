@@ -112,44 +112,42 @@ export async function checkLoginHealth(page: Page): Promise<'LOGGED_IN' | 'LOGGE
         });
 
         // Use domcontentloaded for speed, as recommended in research
+        console.log('🔍 Checking login health...');
         await page.goto('https://www.linkedin.com/feed/', { 
             waitUntil: 'domcontentloaded', 
             timeout: 30000 
         });
 
         // 1. Check for logged in state (Home link in global nav)
-        // Using getByRole as per Pattern 2 in 08-RESEARCH.md
         const homeLink = page.getByRole('link', { name: 'Home', exact: true });
         if (await homeLink.isVisible()) {
+            console.log('✅ Health Check: LOGGED_IN (Home visible)');
             return 'LOGGED_IN';
         }
 
         // 2. Check for login redirect or authwall
         const url = page.url();
         if (url.includes('/login') || url.includes('/authwall')) {
+            console.log(`ℹ️ Health Check: LOGGED_OUT (URL: ${url})`);
             return 'LOGGED_OUT';
         }
 
         // 3. Check for security challenges / CAPTCHA
         const securityCheck = page.getByText(/Security Check/i);
         const captcha = page.locator('#captcha-internal');
-        if (await securityCheck.isVisible() || await captcha.isVisible()) {
+        if (await securityCheck.isVisible() || await captcha.isVisible() || url.includes('/checkpoint/')) {
+            console.warn(`⚠️ Health Check: CHALLENGED (URL: ${url})`);
             return 'CHALLENGED';
         }
 
-        // Fallback: Check for 'Me' menu which is another strong indicator of being logged in
-        // Use .first() to avoid strict mode violations if multiple elements exist
+        // Fallback: Check for 'Me' menu
         const meMenu = page.getByRole('button', { name: /Me/i }).first();
         if (await meMenu.isVisible()) {
+            console.log('✅ Health Check: LOGGED_IN (Me visible)');
             return 'LOGGED_IN';
         }
 
-        // Additional indicator: Check for 'Account' or profile photo
-        const profilePhoto = page.getByAltText(/Photo of/i).first();
-        if (await profilePhoto.isVisible()) {
-            return 'LOGGED_IN';
-        }
-
+        console.log('ℹ️ Health Check: LOGGED_OUT (No indicators)');
         return 'LOGGED_OUT';
     } catch (e) {
         console.error('Health check failed:', e);
@@ -172,7 +170,7 @@ export async function performLogin(page: Page): Promise<boolean> {
     try {
         console.log(`🚀 Attempting automated login for: ${username.substring(0, 3)}...`);
         
-        // Block heavy resources to save memory on Render free tier
+        // Block heavy resources to save memory
         await page.route('**/*', (route) => {
             const type = route.request().resourceType();
             if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
@@ -184,13 +182,12 @@ export async function performLogin(page: Page): Promise<boolean> {
 
         await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
         
-        // Check for username field (using multiple common selectors)
         const usernameField = page.locator('#username, input[name="session_key"], #session_key').first();
         const passwordField = page.locator('#password, input[name="session_password"], #session_password').first();
         const submitButton = page.locator('button[type="submit"], .login__form_action_container button').first();
 
         if (!(await usernameField.isVisible())) {
-            console.error('❌ Could not find username field on login page.');
+            console.error('❌ Login page elements not found. Current URL:', page.url());
             return false;
         }
 
@@ -200,15 +197,15 @@ export async function performLogin(page: Page): Promise<boolean> {
         console.log('Submitting login form...');
         await submitButton.click();
         
-        // Wait longer for the dashboard to load or challenge to appear
+        // Wait for page state to change
         await page.waitForTimeout(10000);
         
-        // Check if we are being challenged (2FA, CAPTCHA)
         const currentUrl = page.url();
-        console.log(`Current URL after login attempt: ${currentUrl}`);
+        console.log(`Current URL after submit: ${currentUrl}`);
         
+        // Check for specific security roadblocks
         if (currentUrl.includes('/checkpoint/') || currentUrl.includes('challenge') || currentUrl.includes('/captcha')) {
-            console.warn('⚠️ LinkedIn Login: Security challenge (2FA/CAPTCHA) detected. Manual cookie refresh REQUIRED.');
+            console.error('❌ SECURITY CHALLENGE detected (2FA/CAPTCHA). Manual login REQUIRED to refresh database cookies.');
             return false;
         }
 
@@ -220,7 +217,7 @@ export async function performLogin(page: Page): Promise<boolean> {
             return true;
         }
 
-        console.error(`❌ Automated login failed. Current URL: ${currentUrl}`);
+        console.error(`❌ Automated login failed. Status: ${status}. URL: ${currentUrl}`);
         return false;
     } catch (e: any) {
         console.error('❌ Automated login Exception:', e.message);
