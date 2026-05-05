@@ -170,10 +170,10 @@ export async function performLogin(page: Page): Promise<boolean> {
     try {
         console.log(`🚀 Attempting automated login for: ${username.substring(0, 3)}...`);
         
-        // Block heavy resources to save memory
+        // Block only images and media (Stylesheets are often needed for JS to show the form)
         await page.route('**/*', (route) => {
             const type = route.request().resourceType();
-            if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+            if (['image', 'font', 'media'].includes(type)) {
                 route.abort();
             } else {
                 route.continue();
@@ -182,14 +182,33 @@ export async function performLogin(page: Page): Promise<boolean> {
 
         await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
         
-        const usernameField = page.locator('#username, input[name="session_key"], #session_key').first();
-        const passwordField = page.locator('#password, input[name="session_password"], #session_password').first();
-        const submitButton = page.locator('button[type="submit"], .login__form_action_container button').first();
+        // Wait for the form to actually appear in the DOM
+        console.log('Waiting for login fields...');
+        const selectors = ['#username', 'input[name="session_key"]', '#session_key', 'input[type="email"]'];
+        let usernameField = null;
 
-        if (!(await usernameField.isVisible())) {
-            console.error('❌ Login page elements not found. Current URL:', page.url());
+        for (const selector of selectors) {
+            try {
+                const el = await page.waitForSelector(selector, { state: 'visible', timeout: 5000 });
+                if (el) {
+                    usernameField = page.locator(selector).first();
+                    break;
+                }
+            } catch (e) {}
+        }
+
+        if (!usernameField) {
+            const pageTitle = await page.title();
+            console.error(`❌ Login fields not found. URL: ${page.url()}, Title: ${pageTitle}`);
+            // Check if we are on a challenge page already
+            if (page.url().includes('checkpoint')) {
+                console.warn('⚠️ Stuck at a security checkpoint before login even started.');
+            }
             return false;
         }
+
+        const passwordField = page.locator('#password, input[name="session_password"], #session_password').first();
+        const submitButton = page.locator('button[type="submit"], .login__form_action_container button').first();
 
         await usernameField.fill(username);
         await passwordField.fill(password);
