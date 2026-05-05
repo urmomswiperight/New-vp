@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToBrowserless, FIXED_USER_AGENT } from '@/lib/browser';
-import { injectFullStorageState, checkLoginHealth, performLogin } from '@/lib/linkedin/session';
+import { injectFullStorageState, checkLoginHealth, performLogin, loadSessionFromDb } from '@/lib/linkedin/session';
 import { sendConnectionRequest } from '@/lib/linkedin/actions';
 import { SELECTORS } from '@/lib/linkedin/selectors';
 import path from 'path';
@@ -58,8 +58,8 @@ export async function POST(req: Request) {
         locale: 'en-US'
     });
 
-    // 5. Session Injection (Storage State)
-    const sessionJson = process.env.LI_SESSION;
+    // 5. Session Injection (Database -> Environment Variable)
+    const sessionJson = await loadSessionFromDb();
     if (sessionJson) {
         await injectFullStorageState(context, sessionJson);
     }

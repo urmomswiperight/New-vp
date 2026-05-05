@@ -1,4 +1,46 @@
 import type { BrowserContext, Page } from 'playwright-core';
+import prisma from '@/lib/prisma';
+
+/**
+ * Loads the LinkedIn session from the database (Config table).
+ * Falls back to environment variable if not found.
+ */
+export async function loadSessionFromDb(): Promise<string | null> {
+    try {
+        const config = await (prisma as any).config.findUnique({
+            where: { key: 'LI_SESSION' }
+        });
+        
+        if (config && config.value && config.value !== '{}') {
+            console.log('✅ Loaded session from database.');
+            return config.value;
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not load session from DB (Config table may not exist yet).');
+    }
+    
+    return process.env.LI_SESSION || null;
+}
+
+/**
+ * Saves the current browser context state to the database.
+ */
+export async function saveSessionToDb(context: BrowserContext): Promise<void> {
+    try {
+        const state = await context.storageState();
+        const sessionJson = JSON.stringify(state);
+        
+        await (prisma as any).config.upsert({
+            where: { key: 'LI_SESSION' },
+            update: { value: sessionJson, updatedAt: new Date() },
+            create: { key: 'LI_SESSION', value: sessionJson }
+        });
+        
+        console.log('💾 Fresh session saved to database.');
+    } catch (e: any) {
+        console.error('❌ Failed to save session to DB:', e.message);
+    }
+}
 
 /**
  * Injects full Playwright storageState JSON into the browser context.
@@ -174,6 +216,7 @@ export async function performLogin(page: Page): Promise<boolean> {
         const status = await checkLoginHealth(page);
         if (status === 'LOGGED_IN') {
             console.log('✅ Automated login successful!');
+            await saveSessionToDb(page.context());
             return true;
         }
 
