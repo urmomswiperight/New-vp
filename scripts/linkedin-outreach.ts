@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { injectFullStorageState, checkLoginHealth, performLogin, loadSessionFromDb, saveSessionToDb } from '../src/lib/linkedin/session';
 import { sendConnectionRequest } from '../src/lib/linkedin/actions';
 import { SELECTORS } from '../src/lib/linkedin/selectors';
+import prisma from '../src/lib/prisma';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,6 +10,7 @@ dotenv.config();
 async function run() {
     const profileUrl = process.env.PROFILE_URL;
     const message = process.env.MESSAGE;
+    const leadId = process.env.LEAD_ID;
 
     if (!profileUrl || !message) {
         console.error('❌ Missing PROFILE_URL or MESSAGE environment variables.');
@@ -74,6 +76,24 @@ async function run() {
 
         if (result.success) {
             console.log('✅ Outreach successful!');
+            
+            // 7. Update Lead Status in Database
+            if (leadId) {
+                try {
+                    await prisma.lead.update({
+                        where: { id: leadId },
+                        data: { 
+                            status: 'Sent',
+                            lastMessage: message,
+                            updatedAt: new Date()
+                        }
+                    });
+                    console.log(`📊 Lead ${leadId} status updated to 'Sent'.`);
+                } catch (dbErr: any) {
+                    console.error('⚠️ Failed to update lead status in DB:', dbErr.message);
+                }
+            }
+
             // Save state if changed (cookies might have refreshed)
             await saveSessionToDb(context);
         } else {

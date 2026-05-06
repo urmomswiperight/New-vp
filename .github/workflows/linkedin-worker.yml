@@ -9,6 +9,9 @@ on:
       message:
         description: 'Connection Request Message'
         required: true
+      leadId:
+        description: 'ID of the lead in Supabase'
+        required: false
 
 jobs:
   outreach:
@@ -33,6 +36,7 @@ jobs:
         env:
           PROFILE_URL: ${{ github.event.inputs.profileUrl }}
           MESSAGE: ${{ github.event.inputs.message }}
+          LEAD_ID: ${{ github.event.inputs.leadId }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           LI_USERNAME: ${{ secrets.LI_USERNAME }}
           LI_PASSWORD: ${{ secrets.LI_PASSWORD }}
