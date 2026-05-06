@@ -7,7 +7,7 @@ import prisma from '@/lib/prisma';
  */
 export async function loadSessionFromDb(): Promise<string | null> {
     try {
-        const config = await (prisma as any).config.findUnique({
+        const config = await prisma.config.findUnique({
             where: { key: 'LI_SESSION' }
         });
         
@@ -16,7 +16,7 @@ export async function loadSessionFromDb(): Promise<string | null> {
             return config.value;
         }
     } catch (e) {
-        console.warn('⚠️ Could not load session from DB (Config table may not exist yet).');
+        console.warn('⚠️ Could not load session from DB.');
     }
     
     return process.env.LI_SESSION || null;
@@ -30,7 +30,7 @@ export async function saveSessionToDb(context: BrowserContext): Promise<void> {
         const state = await context.storageState();
         const sessionJson = JSON.stringify(state);
         
-        await (prisma as any).config.upsert({
+        await prisma.config.upsert({
             where: { key: 'LI_SESSION' },
             update: { value: sessionJson, updatedAt: new Date() },
             create: { key: 'LI_SESSION', value: sessionJson }

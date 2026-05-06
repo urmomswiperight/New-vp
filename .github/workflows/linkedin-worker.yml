@@ -1,0 +1,41 @@
+name: LinkedIn Outreach Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      profileUrl:
+        description: 'LinkedIn Profile URL'
+        required: true
+      message:
+        description: 'Connection Request Message'
+        required: true
+
+jobs:
+  outreach:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Install Playwright Browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Outreach Script
+        env:
+          PROFILE_URL: ${{ github.event.inputs.profileUrl }}
+          MESSAGE: ${{ github.event.inputs.message }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LI_USERNAME: ${{ secrets.LI_USERNAME }}
+          LI_PASSWORD: ${{ secrets.LI_PASSWORD }}
+          LI_SESSION: ${{ secrets.LI_SESSION }}
+          BYPASS_SESSION_HEALTH: 'false'
+        run: npx tsx scripts/linkedin-outreach.ts

@@ -94,6 +94,12 @@ model Campaign {
   @@index([userId])
 }
 
+model Config {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 enum SubscriptionStatus {
   active
   trialing

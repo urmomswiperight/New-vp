@@ -1,143 +1,93 @@
 import { chromium } from 'playwright';
-import path from 'path';
-import fs from 'fs';
+import { injectFullStorageState, checkLoginHealth, performLogin, loadSessionFromDb, saveSessionToDb } from '../src/lib/linkedin/session';
+import { sendConnectionRequest } from '../src/lib/linkedin/actions';
+import { SELECTORS } from '../src/lib/linkedin/selectors';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 async function run() {
-    const profileUrl = process.argv[2];
-    const message = process.argv[3];
+    const profileUrl = process.env.PROFILE_URL;
+    const message = process.env.MESSAGE;
 
     if (!profileUrl || !message) {
-        console.error(JSON.stringify({ success: false, error: 'Missing profileUrl or message' }));
+        console.error('❌ Missing PROFILE_URL or MESSAGE environment variables.');
         process.exit(1);
     }
 
-    // Use a persistent context to maintain LinkedIn session
-    const userDataDir = path.join(process.cwd(), '.playwright-sessions');
-    const context = await chromium.launchPersistentContext(userDataDir, {
-        headless: true, // Set to true for silent background operation
+    console.log(`🚀 Starting LinkedIn Outreach for: ${profileUrl}`);
+
+    const browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
         viewport: { width: 1280, height: 720 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        locale: 'en-US'
     });
 
-    const page = await context.newPage();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenshotPath = path.join(process.cwd(), 'logs', `linkedin-error-${timestamp}.png`);
-
     try {
-        console.log(`Navigating to ${profileUrl}...`);
-        await page.goto(profileUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-        // Check for common LinkedIn blocks
-        const authWall = await page.$('.authwall-container');
-        if (authWall) {
-            throw new Error('AUTHWALL: LinkedIn is forcing login. Session might be invalid.');
+        // 1. Load Session
+        const sessionJson = await loadSessionFromDb();
+        if (sessionJson) {
+            await injectFullStorageState(context, sessionJson);
         }
 
-        // --- NEW RESEARCH MODE ---
-        if (message === 'SCROLL_AND_SCRAPE') {
-            console.log('Research mode enabled: Scrolling and scraping profile...');
-            await page.evaluate(() => window.scrollBy(0, 800));
-            await page.waitForTimeout(2000);
-            await page.evaluate(() => window.scrollBy(0, 800));
-            await page.waitForTimeout(2000);
-            
-            const profileContent = await page.innerText('main').catch(() => 'Main content not found');
-            console.log('--- SCRAPE START ---');
-            console.log(profileContent.substring(0, 5000)); // Limit output for n8n
-            console.log('--- SCRAPE END ---');
-            return;
-        }
-        // -------------------------
+        const page = await context.newPage();
 
-        // Check if we are on the profile page
-        const nameElement = await page.waitForSelector('.text-heading-xlarge', { timeout: 15000 }).catch(() => null);
-        if (!nameElement) {
-            const loginCheck = await page.$('form.login__form');
-            if (loginCheck) {
-                throw new Error('SESSION_EXPIRED: Playwright session is logged out.');
+        // 2. Health Check
+        console.log('🔍 Checking login status...');
+        let loginStatus = await checkLoginHealth(page);
+
+        if (loginStatus === 'LOGGED_OUT') {
+            console.warn('⚠️ Session invalid. Attempting automated login...');
+            const loggedIn = await performLogin(page);
+            if (!loggedIn) {
+                console.error('❌ Login failed. Stopping.');
+                process.exit(1);
             }
-            
-            // Capture screenshot for debugging
-            if (!fs.existsSync(path.join(process.cwd(), 'logs'))) fs.mkdirSync(path.join(process.cwd(), 'logs'));
-            await page.screenshot({ path: screenshotPath });
-            throw new Error(`PROFILE_NOT_FOUND: Could not find profile name. Screenshot saved to ${screenshotPath}`);
+        } else if (loginStatus === 'CHALLENGED') {
+            console.error('❌ Account challenged (CAPTCHA/2FA). Stopping.');
+            process.exit(1);
         }
 
-        // Check if already connected or pending
-        const pendingButton = await page.$('button:has-text("Pending")');
-        if (pendingButton) {
-            console.log(JSON.stringify({ success: true, status: 'Already pending' }));
-            return;
+        // 3. Navigate to Profile
+        let cleanUrl = profileUrl.split('?')[0].replace(/\/$/, '');
+        console.log(`Navigating to profile: ${cleanUrl}`);
+        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForTimeout(5000);
+
+        // 4. Verify we are still logged in
+        if (page.url().includes('/login') || page.url().includes('/authwall')) {
+            console.error('❌ Session expired during navigation.');
+            process.exit(1);
         }
 
-        const messageButton = await page.$('button:has-text("Message")');
-        if (messageButton) {
-            console.log(JSON.stringify({ success: true, status: 'Already connected' }));
-            return;
+        // 5. Verify Profile Loaded
+        const nameHeader = page.getByRole(SELECTORS.profile.name.role, { level: SELECTORS.profile.name.level });
+        if (!(await nameHeader.isVisible())) {
+            console.error('❌ Profile name header not found. Profile might be private or blocked.');
+            process.exit(1);
         }
 
-        // Look for "Connect" button
-        let connectButton = await page.$('button:has-text("Connect")');
-        
-        if (!connectButton) {
-            // Try "More" menu if Connect is not visible
-            const moreButton = await page.$('button[aria-label="More actions"]');
-            if (moreButton) {
-                await moreButton.click();
-                await page.waitForTimeout(1000);
-                connectButton = await page.$('div[role="button"]:has-text("Connect")');
-                if (!connectButton) {
-                  // Sometimes it's just a regular button inside the menu
-                  connectButton = await page.$('button:has-text("Connect")');
-                }
-            }
-        }
+        // 6. Execute Outreach
+        console.log('📤 Sending connection request...');
+        const result = await sendConnectionRequest(page, message);
 
-        if (connectButton) {
-            await connectButton.click();
-            console.log('Clicked Connect');
-
-            // Click "Add a note"
-            const addNoteButton = await page.waitForSelector('button[aria-label="Add a note"]', { timeout: 5000 }).catch(() => null);
-            
-            if (!addNoteButton) {
-              // Sometimes LinkedIn shows "You can customize this invitation" directly or has a different flow
-              const directSend = await page.$('button[aria-label="Send now"]');
-              if (directSend) {
-                 await directSend.click();
-                 console.log(JSON.stringify({ success: true, status: 'Connection request sent directly (no note possible)' }));
-                 return;
-              }
-              throw new Error('ADD_NOTE_NOT_FOUND: Could not find "Add a note" button.');
-            }
-
-            await addNoteButton.click();
-
-            // Fill the message
-            const messageArea = await page.waitForSelector('textarea[name="message"]', { timeout: 5000 });
-            await messageArea.fill(message);
-
-            // Click "Send"
-            const sendButton = await page.waitForSelector('button[aria-label="Send now"]', { timeout: 5000 });
-            await sendButton.click(); 
-            
-            // Verify if sent or if limit reached
-            await page.waitForTimeout(2000);
-            const limitReached = await page.$('text=You’ve reached the weekly invitation limit');
-            if (limitReached) {
-                throw new Error('LIMIT_REACHED: LinkedIn weekly invitation limit reached.');
-            }
-
-            console.log(JSON.stringify({ success: true, status: 'Connection request sent' }));
+        if (result.success) {
+            console.log('✅ Outreach successful!');
+            // Save state if changed (cookies might have refreshed)
+            await saveSessionToDb(context);
         } else {
-            throw new Error('CONNECT_BUTTON_NOT_FOUND: Connect button not found even in "More" menu.');
+            console.error(`❌ Outreach failed: ${result.error}`);
+            process.exit(1);
         }
 
     } catch (error: any) {
-        if (!fs.existsSync(path.join(process.cwd(), 'logs'))) fs.mkdirSync(path.join(process.cwd(), 'logs'));
-        await page.screenshot({ path: screenshotPath }).catch(() => {});
-        console.error(JSON.stringify({ success: false, error: error.message, screenshot: screenshotPath }));
+        console.error('❌ Fatal Script Error:', error.message);
+        process.exit(1);
     } finally {
         await context.close();
+        await browser.close();
+        console.log('👋 Session closed.');
     }
 }
 
