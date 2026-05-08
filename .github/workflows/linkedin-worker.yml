@@ -3,14 +3,21 @@ name: LinkedIn Outreach Worker
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Operation Mode (OUTREACH, FOLLOW_UP, CHECK_INBOX, REPLY)'
+        required: true
+        default: 'OUTREACH'
       profileUrl:
-        description: 'LinkedIn Profile URL'
-        required: true
+        description: 'LinkedIn Profile URL (for OUTREACH)'
+        required: false
       message:
-        description: 'Connection Request Message'
-        required: true
+        description: 'Message Content (for OUTREACH, REPLY)'
+        required: false
       leadId:
         description: 'ID of the lead in Supabase'
+        required: false
+      threadUrl:
+        description: 'LinkedIn Message Thread URL (for REPLY)'
         required: false
 
 jobs:
@@ -32,14 +39,17 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install chromium --with-deps
 
-      - name: Run Outreach Script
+      - name: Run Worker Script
         env:
+          MODE: ${{ github.event.inputs.mode }}
           PROFILE_URL: ${{ github.event.inputs.profileUrl }}
           MESSAGE: ${{ github.event.inputs.message }}
           LEAD_ID: ${{ github.event.inputs.leadId }}
+          THREAD_URL: ${{ github.event.inputs.threadUrl }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           LI_USERNAME: ${{ secrets.LI_USERNAME }}
           LI_PASSWORD: ${{ secrets.LI_PASSWORD }}
           LI_SESSION: ${{ secrets.LI_SESSION }}
+          N8N_INBOUND_WEBHOOK_URL: ${{ secrets.N8N_INBOUND_WEBHOOK_URL }}
           BYPASS_SESSION_HEALTH: 'false'
-        run: npx tsx scripts/linkedin-outreach.ts
+        run: npx tsx scripts/linkedin-worker.ts
