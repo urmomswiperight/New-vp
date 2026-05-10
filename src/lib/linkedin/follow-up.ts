@@ -23,7 +23,8 @@ export async function runLinkedInFollowUp(
         1: { message: "Hi [Name], just checking if you saw my last message. Would love to hear your thoughts!", delay: 3 },
         2: { message: "Hi [Name], I thought you might find this case study interesting regarding our AI automation work: [Link]. Let me know if it sparks any ideas!", delay: 7 },
         3: { message: "Hi [Name], I haven't heard back, so I'll assume now isn't the best time. I'll check back in a few months. All the best!", delay: 14 }
-    }
+    },
+    externalBrowser?: any
 ): Promise<FollowUpResult> {
     const isVercel = process.env.VERCEL === '1';
     const baseDir = isVercel ? os.tmpdir() : process.cwd();
@@ -32,12 +33,19 @@ export async function runLinkedInFollowUp(
 
     const sentLeads: string[] = [];
     
-    console.log('Follow-Up: Connecting...');
-    let browser;
-    try {
-        browser = await connectToBrowserless();
-    } catch (e: any) {
-        return { success: false, sentLeads: [], error: `CONNECTION_FAILED: ${e.message}` };
+    let browser = externalBrowser;
+    let ownBrowser = false;
+
+    if (!browser) {
+        console.log('Follow-Up: No external browser provided. Connecting to Browserless...');
+        try {
+            browser = await connectToBrowserless();
+            ownBrowser = true;
+        } catch (e: any) {
+            return { success: false, sentLeads: [], error: `CONNECTION_FAILED: ${e.message}` };
+        }
+    } else {
+        console.log('Follow-Up: Using provided stealth browser.');
     }
 
     try {
@@ -120,14 +128,5 @@ export async function runLinkedInFollowUp(
         return { success: false, sentLeads: [], error: error.message };
     } finally {
         if (ownBrowser && browser) await browser.close().catch(() => {});
-    }
-}
-ccess: true, sentLeads };
-
-    } catch (error: any) {
-        console.error('Follow-Up Fatal Error:', error);
-        return { success: false, sentLeads: [], error: error.message };
-    } finally {
-        if (browser) await browser.close().catch(() => {});
     }
 }
