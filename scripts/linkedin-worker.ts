@@ -88,10 +88,10 @@ async function run() {
                 await handleOutreach(page, context);
                 break;
             case 'FOLLOW_UP':
-                await handleFollowUp();
+                await handleFollowUp(browser);
                 break;
             case 'CHECK_INBOX':
-                await handleInboxCheck();
+                await handleInboxCheck(page);
                 break;
             case 'REPLY':
                 await handleReply(page, context);
@@ -138,9 +138,9 @@ async function handleOutreach(page: any, context: any) {
     }
 }
 
-async function handleFollowUp() {
+async function handleFollowUp(browser: any) {
     console.log('Running automated follow-ups...');
-    const result = await runLinkedInFollowUp();
+    const result = await runLinkedInFollowUp(undefined, browser);
     if (result.success) {
         console.log(`✅ Follow-ups complete. Sent to ${result.sentLeads.length} leads.`);
     } else {
@@ -148,9 +148,9 @@ async function handleFollowUp() {
     }
 }
 
-async function handleInboxCheck() {
+async function handleInboxCheck(page: any) {
     console.log('Scanning inbox for replies...');
-    const result = await checkLinkedInInbox();
+    const result = await checkLinkedInInbox(page);
     if (result.success) {
         console.log(`✅ Inbox scan complete. Found ${result.repliedLeads.length} new replies.`);
     } else {

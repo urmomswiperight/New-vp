@@ -190,6 +190,13 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
         console.error('Inbox Check Fatal Error:', error);
         return { success: false, repliedLeads: [], error: error.message };
     } finally {
+        if (context) await context.close().catch(() => {});
+        if (browser) await browser.close().catch(() => {});
+    }
+}
+ck Fatal Error:', error);
+        return { success: false, repliedLeads: [], error: error.message };
+    } finally {
         await context.close().catch(() => {});
         if (browser) await browser.close().catch(() => {});
     }
