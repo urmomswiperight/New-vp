@@ -1,0 +1,224 @@
+{
+  "name": "MASTER: LinkedIn Sales Machine (V12 - FIXED)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "daysInterval": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-9am",
+      "name": "9AM: Start Outreach",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Lead",
+        "limit": 25,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "New"
+            },
+            {
+              "keyName": "linkedinUrl",
+              "condition": "neq",
+              "keyValue": ""
+            }
+          ]
+        }
+      },
+      "id": "fetch-leads",
+      "name": "Supabase: Fetch 25 Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        250,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "haoOEsP8Okk8QccR",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-leads",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        500,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-msg",
+              "name": "personalizedMessage",
+              "value": "={{ $json.metadata?.draft || (\"Hi \" + $json.firstName + \". I'm a CS & Data Science guy building AI outreach tools for founders—would love to connect!\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "construct-msg",
+      "name": "Construct Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        750,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"mode\": \"OUTREACH\",\n    \"profileUrl\": $json.linkedinUrl,\n    \"message\": $json.personalizedMessage,\n    \"leadId\": $json.id\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "trigger-github",
+      "name": "GitHub: Trigger Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1000,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tuODxMSOvvKCM8br",
+          "name": "GitHub Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "minutes"
+      },
+      "id": "wait-2m",
+      "name": "Wait 2m (Jitter)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "9AM: Start Outreach": {
+      "main": [
+        [
+          {
+            "node": "Supabase: Fetch 25 Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase: Fetch 25 Leads": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Construct Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Construct Message": {
+      "main": [
+        [
+          {
+            "node": "GitHub: Trigger Worker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub: Trigger Worker": {
+      "main": [
+        [
+          {
+            "node": "Wait 2m (Jitter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2m (Jitter)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

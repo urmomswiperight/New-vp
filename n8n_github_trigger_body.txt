@@ -1,0 +1,10 @@
+{{ 
+JSON.stringify({
+  "ref": "main",
+  "inputs": {
+    "profileUrl": $('Split In Batches1').item.json.linkedinUrl,
+    "message": $json.personalizedMessage,
+    "leadId": $('Split In Batches1').item.json.id
+  }
+})
+}}

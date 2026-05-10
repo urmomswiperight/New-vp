@@ -7,19 +7,27 @@ import prisma from '@/lib/prisma';
  */
 export async function loadSessionFromDb(): Promise<string | null> {
     try {
+        console.log('🔄 Attempting to load session from database...');
         const config = await prisma.config.findUnique({
             where: { key: 'LI_SESSION' }
         });
         
-        if (config && config.value && config.value !== '{}') {
-            console.log('✅ Loaded session from database.');
+        if (config && config.value && config.value !== '{}' && config.value !== 'null') {
+            console.log('✅ Loaded session from database (Config table).');
             return config.value;
         }
-    } catch (e) {
-        console.warn('⚠️ Could not load session from DB.');
+        console.log('ℹ️ No valid session found in database (Config table is empty or null).');
+    } catch (e: any) {
+        console.warn(`⚠️ Database session load failed: ${e.message}`);
     }
     
-    return process.env.LI_SESSION || null;
+    if (process.env.LI_SESSION) {
+        console.log('✅ Found session in environment variables (LI_SESSION).');
+        return process.env.LI_SESSION;
+    }
+    
+    console.warn('❌ No LinkedIn session found in DB or Environment Variables.');
+    return null;
 }
 
 /**

@@ -1,46 +1,81 @@
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { injectFullStorageState, checkLoginHealth, performLogin, loadSessionFromDb, saveSessionToDb } from '../src/lib/linkedin/session';
 import { sendConnectionRequest, sendMessage } from '../src/lib/linkedin/actions';
 import { runLinkedInFollowUp } from '../src/lib/linkedin/follow-up';
 import { checkLinkedInInbox } from '../src/lib/linkedin/inbox';
+import { connectToBrowserless, FIXED_USER_AGENT } from '../src/lib/browser';
 import prisma from '../src/lib/prisma';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
+// Apply stealth plugin
+chromium.use(StealthPlugin());
+
 async function run() {
     const mode = process.env.MODE || 'OUTREACH';
-    console.log(`🚀 Starting LinkedIn Worker in mode: ${mode}`);
+    console.log(`🚀 Starting STEALTH LinkedIn Worker in mode: ${mode}`);
 
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-        viewport: { width: 1280, height: 720 },
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        locale: 'en-US'
-    });
+    let browser;
+    const wssUrl = process.env.BROWSERLESS_WSS;
+    const proxyUrl = process.env.RESIDENTIAL_PROXY; // Optional: "http://user:pass@host:port"
 
     try {
+        if (wssUrl) {
+            console.log('🌐 Connecting to Browserless.io for high-authority IP reputation...');
+            browser = await connectToBrowserless();
+        } else {
+            console.log('🖥️ Launching local STEALTH chromium...');
+            const launchOptions: any = { 
+                headless: true,
+                args: [
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox',
+                    '--disable-blink-features=AutomationControlled',
+                    '--use-gl=desktop'
+                ]
+            };
+            
+            if (proxyUrl) {
+                console.log('🛡️ Using Residential Proxy for enhanced stealth.');
+                launchOptions.proxy = { server: proxyUrl };
+            }
+
+            browser = await chromium.launch(launchOptions);
+        }
+
+        const context = await browser.newContext({
+            viewport: { width: 1280, height: 720 },
+            userAgent: FIXED_USER_AGENT,
+            locale: 'en-US',
+            timezoneId: 'America/New_York'
+        });
+
         // 1. Load Session
         const sessionJson = await loadSessionFromDb();
         if (sessionJson) {
-            await injectFullStorageState(context, sessionJson);
+            console.log('💉 Injecting session (cookies + localStorage)...');
+            await injectFullStorageState(context, sessionJson, true); 
+        } else {
+            console.warn('⚠️ No session found in DB or Environment. Automated login is high-risk.');
         }
 
         const page = await context.newPage();
 
         // 2. Health Check
-        console.log('🔍 Checking login status...');
+        console.log('🔍 Performing Stealth Health Check...');
         let loginStatus = await checkLoginHealth(page);
 
         if (loginStatus === 'LOGGED_OUT') {
             console.warn('⚠️ Session invalid. Attempting automated login...');
             const loggedIn = await performLogin(page);
             if (!loggedIn) {
-                console.error('❌ Login failed. Stopping.');
+                console.error('❌ Login failed. Account likely challenged or blocked.');
                 process.exit(1);
             }
         } else if (loginStatus === 'CHALLENGED') {
-            console.error('❌ Account challenged (CAPTCHA/2FA). Stopping.');
+            console.error('❌ Account challenged (CAPTCHA/2FA). Manual session refresh required.');
             process.exit(1);
         }
 
@@ -50,7 +85,7 @@ async function run() {
                 await handleOutreach(page, context);
                 break;
             case 'FOLLOW_UP':
-                await handleFollowUp(); // This uses its own browser management currently, but I'll refactor it later if needed
+                await handleFollowUp();
                 break;
             case 'CHECK_INBOX':
                 await handleInboxCheck();
@@ -66,12 +101,11 @@ async function run() {
         await saveSessionToDb(context);
 
     } catch (error: any) {
-        console.error('❌ Fatal Script Error:', error.message);
+        console.error('❌ Fatal Stealth Worker Error:', error.message);
         process.exit(1);
     } finally {
-        await context.close().catch(() => {});
-        await browser.close().catch(() => {});
-        console.log('👋 Worker finished.');
+        if (browser) await browser.close().catch(() => {});
+        console.log('👋 Stealth Worker finished.');
     }
 }
 
@@ -83,7 +117,7 @@ async function handleOutreach(page: any, context: any) {
     if (!profileUrl || !message) throw new Error('Missing PROFILE_URL or MESSAGE');
 
     console.log(`Navigating to profile: ${profileUrl}`);
-    await page.goto(profileUrl.split('?')[0].replace(/\/$/, ''), { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(profileUrl.split('?')[0].replace(/\/$/, ''), { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForTimeout(5000);
 
     const result = await sendConnectionRequest(page, message);
@@ -92,8 +126,9 @@ async function handleOutreach(page: any, context: any) {
         if (leadId) {
             await prisma.lead.update({
                 where: { id: leadId },
-                data: { status: 'Sent', lastMessage: message, updatedAt: new Date() }
+                data: { status: 'Contacted (LinkedIn)', lastMessage: message, updatedAt: new Date() }
             });
+            console.log(`📊 Updated database status for lead: ${leadId} to 'Contacted (LinkedIn)'`);
         }
     } else {
         throw new Error(`Outreach failed: ${result.error}`);

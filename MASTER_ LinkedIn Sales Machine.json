@@ -1,5 +1,5 @@
 {
-  "name": "MASTER: LinkedIn Sales Machine (V11 - Full Cycle)",
+  "name": "MASTER: LinkedIn Sales Machine",
   "nodes": [
     {
       "parameters": {
@@ -12,13 +12,13 @@
           ]
         }
       },
-      "id": "8bafa4a7-7641-4740-90a1-984c43eb5a13",
+      "id": "1532de33-8099-445c-8859-48eebbd31cfd",
       "name": "10AM: 3-Day Nudge",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
       "position": [
-        4448,
-        4496
+        -16,
+        864
       ]
     },
     {
@@ -42,13 +42,13 @@
           ]
         }
       },
-      "id": "24975935-25ed-4677-8e4d-602ae0aad646",
+      "id": "b4f827e4-d3ee-4324-a097-61c0447da52a",
       "name": "Supabase: Fetch Follow-ups",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
       "position": [
-        4688,
-        4496
+        224,
+        864
       ],
       "credentials": {
         "supabaseApi": {
@@ -61,9 +61,9 @@
       "parameters": {
         "modelId": {
           "__rl": true,
-          "value": "deepseek-v3.1:671b-cloud",
+          "value": "minimax-m2.5:cloud",
           "mode": "list",
-          "cachedResultName": "deepseek-v3.1:671b-cloud"
+          "cachedResultName": "minimax-m2.5:cloud"
         },
         "messages": {
           "values": [
@@ -77,14 +77,14 @@
       "type": "@n8n/n8n-nodes-langchain.ollama",
       "typeVersion": 1,
       "position": [
-        4912,
-        4496
+        448,
+        864
       ],
-      "id": "70c9f59f-1133-4736-a855-4b58e8dd3923",
+      "id": "217f8c75-52c2-4383-a155-6eeb3b1e8877",
       "name": "AI: Generate EMB Nudge",
       "credentials": {
         "ollamaApi": {
-          "id": "tmtnwIIzgLyacaiR",
+          "id": "C6pdC5R4ElDtEwvV",
           "name": "Ollama account"
         }
       }
@@ -92,41 +92,29 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "https://new-vp.vercel.app/api/linkedin/follow-up",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Accept",
-              "value": " application/vnd.github.v3+json"
-            },
-            {
-              "name": "X-GitHub-Api-Version",
-              "value": "2022-11-28"
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"mode\": \"FOLLOW_UP\",\n    \"profileUrl\": $(\"Supabase: Fetch Follow-ups\").item.json.linkedinUrl,\n    \"message\": $json.personalizedMessage,\n    \"leadId\": $(\"Supabase: Fetch Follow-ups\").item.json.id\n  }\n}) }}",
+        "jsonBody": "={{ \nJSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"profileUrl\": $('Split In Batches1').item.json.linkedinUrl,\n    \"message\": $json.personalizedMessage,\n    \"leadId\": $('Split In Batches1').item.json.id\n  }\n})\n}}",
         "options": {}
       },
-      "id": "09d2e08b-da71-4a95-8fa7-a2a575662e38",
+      "id": "1a605d78-014e-4a6e-8a1d-8053c715519d",
       "name": "Vercel API: Send Nudge",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        5248,
-        4496
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "tuODxMSOvvKCM8br",
-          "name": "Header Auth account"
-        }
-      }
+        784,
+        864
+      ]
     },
     {
       "parameters": {
@@ -139,7 +127,7 @@
           ]
         }
       },
-      "id": "feeb0e72-5efb-44d2-9d83-0715a13e7b8a",
+      "id": "738a89e9-9ac2-4dcd-a2de-3a2c489b1ef1",
       "name": "Every 15m: Scan Inbox",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
@@ -151,41 +139,26 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "https://new-vp.vercel.app/api/linkedin/check-inbox",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Accept",
-              "value": " application/vnd.github.v3+json"
-            },
-            {
-              "name": "X-GitHub-Api-Version",
-              "value": "2022-11-28"
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
             }
           ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"mode\": \"CHECK_INBOX\"\n  }\n}) }}",
         "options": {}
       },
-      "id": "5aa9d480-f70a-433d-8515-da548dc78870",
+      "id": "0b71cf3d-e4b1-47be-91bf-e441c96349ae",
       "name": "Vercel API: Trigger Scan",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
         256,
         0
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "tuODxMSOvvKCM8br",
-          "name": "Header Auth account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -194,7 +167,7 @@
             {
               "id": "assign-no-link",
               "name": "personalizedMessage",
-              "value": "={{ $json.metadata?.draft || (\"Hi \" + $json.firstName + \". I'm a CS & Data Science guy building AI outreach tools for founders—would love to connect!\") }}",
+              "value": "={{ $json.metadata?.draft || (\"Hi \" + $json.firstName + \", I saw your work at \" + $json.company + \". I'm a CS & Data Science guy building AI outreach tools for founders—would love to connect!\") }}",
               "type": "string"
             }
           ]
@@ -369,25 +342,19 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "url": "https://new-vp.vercel.app/api/linkedin/reply",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Accept",
-              "value": " application/vnd.github.v3+json"
-            },
-            {
-              "name": "X-GitHub-Api-Version",
-              "value": "2022-11-28"
+              "name": "X-Outreach-Secret",
+              "value": "my-super-secret-123"
             }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"mode\": \"REPLY\",\n    \"threadUrl\": $node[\"Webhook: LinkedIn Inbound1\"].json.body.threadUrl,\n    \"message\": $node[\"AI: Conversational Assistant\"].json.choices[0].message.content\n  }\n}) }}",
+        "jsonBody": "={{ \n  JSON.stringify({\n    threadUrl: $node[\"Webhook: LinkedIn Inbound1\"].json.body.threadUrl,\n    message: $node[\"AI: Conversational Assistant\"].json.choices[0].message.content\n  })\n}}",
         "options": {}
       },
       "id": "6d510d08-8175-4384-93d2-ebb4d3f9c302",
@@ -397,13 +364,7 @@
       "position": [
         560,
         432
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "tuODxMSOvvKCM8br",
-          "name": "Header Auth account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -454,7 +415,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"mode\": \"OUTREACH\",\n    \"profileUrl\": $json.linkedinUrl,\n    \"message\": $json.personalizedMessage,\n    \"leadId\": $json.id\n  }\n}) }}",
+        "jsonBody": "={{ \nJSON.stringify({\n  \"ref\": \"main\",\n  \"inputs\": {\n    \"profileUrl\": $('Loop Over Items').item.json.linkedinUrl,\n    \"message\": $json.personalizedMessage,\n    \"leadId\": $('Loop Over Items').item.json.id\n  }\n})\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -484,7 +445,7 @@
         448,
         656
       ],
-      "id": "ba04aed4-3394-4048-be6b-4feb299f0e23",
+      "id": "6b0145d2-034f-41af-bbf2-4e1c5a378f0e",
       "name": "Send a text message",
       "webhookId": "46dd718e-1d1d-4165-be78-45093b1b17ac",
       "credentials": {
@@ -509,26 +470,6 @@
     }
   ],
   "pinData": {
-    "10AM: 3-Day Nudge": [
-      {
-        "json": {
-          "timestamp": "2026-04-26T10:00:23.005-04:00",
-          "Readable date": "April 26th 2026, 10:00:23 am",
-          "Readable time": "10:00:23 am",
-          "Day of week": "Sunday",
-          "Year": "2026",
-          "Month": "April",
-          "Day of month": "26",
-          "Hour": "10",
-          "Minute": "00",
-          "Second": "23",
-          "Timezone": "America/New_York (UTC-04:00)"
-        },
-        "pairedItem": {
-          "item": 0
-        }
-      }
-    ],
     "Every 15m: Scan Inbox": [
       {
         "json": {
@@ -562,6 +503,26 @@
           "Hour": "12",
           "Minute": "00",
           "Second": "09",
+          "Timezone": "America/New_York (UTC-04:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "10AM: 3-Day Nudge": [
+      {
+        "json": {
+          "timestamp": "2026-05-08T10:00:00.004-04:00",
+          "Readable date": "May 8th 2026, 10:00:00 am",
+          "Readable time": "10:00:00 am",
+          "Day of week": "Friday",
+          "Year": "2026",
+          "Month": "May",
+          "Day of month": "08",
+          "Hour": "10",
+          "Minute": "00",
+          "Second": "00",
           "Timezone": "America/New_York (UTC-04:00)"
         },
         "pairedItem": {
@@ -708,11 +669,6 @@
         ]
       ]
     },
-    "Update a row": {
-      "main": [
-        []
-      ]
-    },
     "HTTP Request": {
       "main": [
         [
@@ -744,9 +700,8 @@
   },
   "versionId": "509a90d0-6aa1-4161-9bd3-203c76196d5f",
   "meta": {
-    "templateCredsSetupCompleted": true,
     "instanceId": "25dbeefd104401de6057426dac9740ab9fec6da0e0c1573368d9b07a295a3b70"
   },
-  "id": "PBrGgrIDeRRXJv5S",
+  "id": "BVbySbeXRPV4Cump",
   "tags": []
 }

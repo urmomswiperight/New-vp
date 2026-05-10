@@ -1,0 +1,11 @@
+{{ 
+JSON.stringify({
+  "ref": "main",
+  "inputs": {
+    "mode": "OUTREACH",
+    "profileUrl": $json.linkedinUrl,
+    "message": $json.personalizedMessage,
+    "leadId": $json.id
+  }
+})
+}}
