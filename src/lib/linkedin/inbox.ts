@@ -46,8 +46,8 @@ async function classifyMessage(text: string): Promise<{ sentiment: 'POSITIVE' | 
                 if (response.data?.message?.content) {
                     return JSON.parse(response.data.message.content);
                 }
-            } catch (ollamaErr: any) {
-                console.warn('⚠️ Ollama failed, falling back...', ollamaErr.message);
+            } catch (ollamaErr: unknown) {
+                console.warn('⚠️ Ollama failed, falling back...', (ollamaErr as Error).message);
             }
         }
 
@@ -86,23 +86,30 @@ async function classifyMessage(text: string): Promise<{ sentiment: 'POSITIVE' | 
     }
 }
 
-export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
+export async function checkLinkedInInbox(externalPage?: any): Promise<InboxCheckResult> {
     const isVercel = process.env.VERCEL === '1';
     const baseDir = isVercel ? os.tmpdir() : process.cwd();
     const userDataDir = path.join(baseDir, '.playwright-sessions');
     if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
 
-    console.log('Inbox Check: Connecting...');
     let browser;
-    try {
-        browser = await connectToBrowserless();
-    } catch (e: any) {
-        return { success: false, repliedLeads: [], error: `CONNECTION_FAILED: ${e.message}` };
+    let context;
+    let page = externalPage;
+
+    if (!page) {
+        console.log('Inbox Check: No external page provided. Connecting to Browserless...');
+        try {
+            browser = await connectToBrowserless();
+            context = await browser.newContext();
+            await injectLinkedInAuth(context);
+            page = await context.newPage();
+        } catch (e: unknown) {
+            return { success: false, repliedLeads: [], error: `CONNECTION_FAILED: ${(e as Error).message}` };
+        }
+    } else {
+        console.log('Inbox Check: Using provided stealth page.');
     }
     
-    const context = await browser.newContext();
-    await injectLinkedInAuth(context);
-    const page = await context.newPage();
     const repliedLeads: { email: string; sentiment: string; message: string }[] = [];
 
     try {
@@ -174,30 +181,23 @@ export async function checkLinkedInInbox(): Promise<InboxCheckResult> {
                                 });
                                 console.log(`n8n Webhook triggered for ${name}`);
                             }
-                        } catch (webhookErr: any) {
-                            console.error('Failed to trigger n8n webhook:', webhookErr.message);
+                        } catch (webhookErr: unknown) {
+                            console.error('Failed to trigger n8n webhook:', (webhookErr as Error).message);
                         }
                     }
                 }
-            } catch (err) {
-                console.error('Error processing conversation card:', err);
+            } catch (err: unknown) {
+                console.error('Error processing conversation card:', (err as Error).message);
             }
         }
 
         return { success: true, repliedLeads };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Inbox Check Fatal Error:', error);
-        return { success: false, repliedLeads: [], error: error.message };
+        return { success: false, repliedLeads: [], error: (error as Error).message };
     } finally {
         if (context) await context.close().catch(() => {});
-        if (browser) await browser.close().catch(() => {});
-    }
-}
-ck Fatal Error:', error);
-        return { success: false, repliedLeads: [], error: error.message };
-    } finally {
-        await context.close().catch(() => {});
         if (browser) await browser.close().catch(() => {});
     }
 }

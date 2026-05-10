@@ -41,8 +41,8 @@ export async function runLinkedInFollowUp(
         try {
             browser = await connectToBrowserless();
             ownBrowser = true;
-        } catch (e: any) {
-            return { success: false, sentLeads: [], error: `CONNECTION_FAILED: ${e.message}` };
+        } catch (e: unknown) {
+            return { success: false, sentLeads: [], error: `CONNECTION_FAILED: ${(e as Error).message}` };
         }
     } else {
         console.log('Follow-Up: Using provided stealth browser.');
@@ -94,7 +94,7 @@ export async function runLinkedInFollowUp(
                             await editor.fill(personalizedMessage);
                         } else {
                             const fallbackEditor = await page.waitForSelector('.msg-form__contenteditable', { timeout: 5000 }).catch(() => null);
-                            if (fallbackEditor) await fallbackEditor.fill(personalizedMessage);
+                            if (fallbackEditor) await (fallbackEditor as any).fill(personalizedMessage);
                         }
                         
                         await page.waitForTimeout(1000);
@@ -113,8 +113,8 @@ export async function runLinkedInFollowUp(
                         sentLeads.push(lead.email);
                         console.log(`Follow-Up Step ${step}: Sent to ${lead.firstName}`);
                     }
-                } catch (err: any) {
-                    console.error(`Follow-Up Failed for ${lead.firstName}:`, err.message);
+                } catch (err: unknown) {
+                    console.error(`Follow-Up Failed for ${lead.firstName}:`, (err as Error).message);
                 } finally {
                     await context.close().catch(() => {});
                 }
@@ -123,9 +123,9 @@ export async function runLinkedInFollowUp(
 
         return { success: true, sentLeads };
 
-    } catch (err: any) {
-        console.error('Follow-Up Fatal Error:', err);
-        return { success: false, sentLeads: [], error: err.message };
+    } catch (e: unknown) {
+        console.error('Follow-Up Fatal Error:', e);
+        return { success: false, sentLeads: [], error: (e as Error).message || String(e) };
     } finally {
         if (ownBrowser && browser) await browser.close().catch(() => {});
     }

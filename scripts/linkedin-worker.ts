@@ -103,8 +103,8 @@ async function run() {
         // 4. Save state if successful
         await saveSessionToDb(context);
 
-    } catch (error: any) {
-        console.error('❌ Fatal Stealth Worker Error:', error.message);
+    } catch (e: unknown) {
+        console.error('❌ Fatal Stealth Worker Error:', (e as Error).message || String(e));
         process.exit(1);
     } finally {
         if (browser) await browser.close().catch(() => {});
@@ -112,7 +112,7 @@ async function run() {
     }
 }
 
-async function handleOutreach(page: any, context: any) {
+async function handleOutreach(page: Page, context: BrowserContext) {
     const profileUrl = process.env.PROFILE_URL;
     const message = process.env.MESSAGE;
     const leadId = process.env.LEAD_ID;
@@ -138,7 +138,7 @@ async function handleOutreach(page: any, context: any) {
     }
 }
 
-async function handleFollowUp(browser: any) {
+async function handleFollowUp(browser: Browser) {
     console.log('Running automated follow-ups...');
     const result = await runLinkedInFollowUp(undefined, browser);
     if (result.success) {
@@ -148,7 +148,7 @@ async function handleFollowUp(browser: any) {
     }
 }
 
-async function handleInboxCheck(page: any) {
+async function handleInboxCheck(page: Page) {
     console.log('Scanning inbox for replies...');
     const result = await checkLinkedInInbox(page);
     if (result.success) {
@@ -158,7 +158,7 @@ async function handleInboxCheck(page: any) {
     }
 }
 
-async function handleReply(page: any, context: any) {
+async function handleReply(page: Page, context: BrowserContext) {
     const threadUrl = process.env.THREAD_URL;
     const message = process.env.MESSAGE;
 
