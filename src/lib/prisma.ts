@@ -14,8 +14,14 @@ const prismaClientSingleton = () => {
     }
   }
 
-  const connectionString = process.env.DATABASE_URL
+  let connectionString = process.env.DATABASE_URL
   
+  // If we have a direct connection URL (usually port 5432), try to see if a pooled one exists
+  // Supabase IPv4 support requires using the connection pooler (port 6543)
+  if (connectionString && connectionString.includes(':5432') && !connectionString.includes('pgbouncer=true')) {
+    console.log('🔄 Detected direct connection URL. Suggesting switch to pooler (port 6543) for IPv4 stability.');
+  }
+
   if (!connectionString) {
     // During build time on Vercel, DATABASE_URL might be empty
     return new PrismaClient()
