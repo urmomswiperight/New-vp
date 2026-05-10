@@ -123,9 +123,9 @@ export async function runLinkedInFollowUp(
 
         return { success: true, sentLeads };
 
-    } catch (error: any) {
-        console.error('Follow-Up Fatal Error:', error);
-        return { success: false, sentLeads: [], error: error.message };
+    } catch (err: any) {
+        console.error('Follow-Up Fatal Error:', err);
+        return { success: false, sentLeads: [], error: err.message };
     } finally {
         if (ownBrowser && browser) await browser.close().catch(() => {});
     }
