@@ -19,30 +19,33 @@ async function run() {
 
     let browser;
     const wssUrl = process.env.BROWSERLESS_WSS;
-    const proxyUrl = process.env.RESIDENTIAL_PROXY; // Optional: "http://user:pass@host:port"
+    const proxyUrl = process.env.RESIDENTIAL_PROXY;
 
     try {
         if (wssUrl) {
-            console.log('🌐 Connecting to Browserless.io for high-authority IP reputation...');
+            console.log('🌐 Connecting to Browserless.io (Authority IP)...');
             browser = await connectToBrowserless();
+        } else if (proxyUrl) {
+            console.log('🛡️ Launching STEALTH Chromium with RESIDENTIAL PROXY...');
+            browser = await chromium.launch({ 
+                headless: true,
+                proxy: { server: proxyUrl },
+                args: [
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox',
+                    '--disable-blink-features=AutomationControlled'
+                ]
+            });
         } else {
-            console.log('🖥️ Launching local STEALTH chromium...');
-            const launchOptions: any = { 
+            console.warn('⚠️ No Proxy or Browserless detected. Using local GitHub IP (High CAPTCHA risk).');
+            browser = await chromium.launch({ 
                 headless: true,
                 args: [
                     '--no-sandbox', 
                     '--disable-setuid-sandbox',
-                    '--disable-blink-features=AutomationControlled',
-                    '--use-gl=desktop'
+                    '--disable-blink-features=AutomationControlled'
                 ]
-            };
-            
-            if (proxyUrl) {
-                console.log('🛡️ Using Residential Proxy for enhanced stealth.');
-                launchOptions.proxy = { server: proxyUrl };
-            }
-
-            browser = await chromium.launch(launchOptions);
+            });
         }
 
         const context = await browser.newContext({

@@ -13,10 +13,19 @@ async function extract() {
     console.log('3. Once you are on the Feed page, wait 5 seconds.');
     console.log('4. Close the browser window.');
 
-    const browser = await chromium.launch({ 
+    const proxyUrl = process.env.RESIDENTIAL_PROXY;
+
+    const launchOptions: any = { 
         headless: false,
         args: ['--disable-blink-features=AutomationControlled']
-    });
+    };
+
+    if (proxyUrl) {
+        console.log('🛡️ Using Residential Proxy for extraction.');
+        launchOptions.proxy = { server: proxyUrl };
+    }
+
+    const browser = await chromium.launch(launchOptions);
     
     const context = await browser.newContext({
         viewport: { width: 1280, height: 720 },
