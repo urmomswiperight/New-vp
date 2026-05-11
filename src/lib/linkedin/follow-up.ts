@@ -121,11 +121,15 @@ export async function runLinkedInFollowUp(
             }
         }
 
-        return { success: true, sentLeads };
+        return { ["success"]: true, ["sentLeads"]: sentLeads };
 
     } catch (e: unknown) {
         console.error('Follow-Up Fatal Error:', e);
-        return { success: false, sentLeads: [], error: (e as Error).message || String(e) };
+        return { 
+            ["success"]: false, 
+            ["sentLeads"]: [], 
+            ["error"]: (e as Error).message || String(e) 
+        };
     } finally {
         if (ownBrowser && browser) await browser.close().catch(() => {});
     }

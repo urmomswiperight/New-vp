@@ -191,11 +191,11 @@ export async function checkLinkedInInbox(externalPage?: any): Promise<InboxCheck
             }
         }
 
-        return { success: true, repliedLeads };
+        return { ["success"]: true, ["repliedLeads"]: repliedLeads };
 
     } catch (error: unknown) {
         console.error('Inbox Check Fatal Error:', error);
-        return { success: false, repliedLeads: [], error: (error as Error).message };
+        return { ["success"]: false, ["repliedLeads"]: [], ["error"]: (error as Error).message };
     } finally {
         if (context) await context.close().catch(() => {});
         if (browser) await browser.close().catch(() => {});
