@@ -7,12 +7,22 @@ import { SELECTORS } from './selectors';
  */
 export async function sendConnectionRequest(page: Page, note?: string): Promise<{ success: boolean; error?: string }> {
     try {
-        console.log('🔍 Checking for Connection status...');
+        console.log('🔍 Checking for Connection status (Multi-Strategy Hunter)...');
 
-        // 0. Check if already Pending
+        // Log what we see
+        const buttons = await page.locator('button').allTextContents();
+        console.log('📍 Visible Buttons:', buttons.filter(b => b.length < 20).join(', '));
+
+        // 0. Check for Pending or Already Connected
         const pendingBtn = page.getByRole(SELECTORS.profile.pending.role, { name: SELECTORS.profile.pending.name });
+        const messageBtn = page.getByRole(SELECTORS.profile.message.role, { name: SELECTORS.profile.message.name });
+        
         if (await pendingBtn.isVisible()) {
             console.log('ℹ️ Connection already pending. Marking as successful.');
+            return { ["success"]: true };
+        }
+        if (await messageBtn.isVisible()) {
+            console.log('ℹ️ Already connected (Message button visible). Marking as successful.');
             return { ["success"]: true };
         }
 
@@ -22,15 +32,14 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
             exact: SELECTORS.profile.connect.exact 
         });
         
-        if (!(await connectBtn.isVisible())) {
-            // Check if we should Follow first
-            const followBtn = page.getByRole(SELECTORS.profile.follow.role, { name: SELECTORS.profile.follow.name });
-            if (await followBtn.isVisible()) {
-                console.log('ℹ️ Found Follow button. Skipping connect request.');
-                return { ["success"]: true };
-            }
+        // 2. Check for Follow button (if Connect not primary)
+        const followBtn = page.getByRole(SELECTORS.profile.follow.role, { name: SELECTORS.profile.follow.name });
+        if (await followBtn.isVisible()) {
+            console.log('ℹ️ Found Follow button. Skipping connect request.');
+            return { ["success"]: true };
+        }
 
-            // 2. If not visible, check "More" menu
+        if (!(await connectBtn.isVisible())) {
             console.log('⚠️ Connect button not primary. Checking "More" menu...');
             const moreBtn = page.getByRole(SELECTORS.profile.more.role, { name: SELECTORS.profile.more.name })
                          .or(page.getByRole(SELECTORS.profile.moreActions.role, { name: SELECTORS.profile.moreActions.name }));
@@ -48,15 +57,6 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
         }
 
         if (!(await connectBtn.isVisible())) {
-            // Check if already connected
-            const messageBtn = page.getByRole(SELECTORS.profile.message.role, { 
-                name: SELECTORS.profile.message.name,
-                exact: SELECTORS.profile.message.exact
-            });
-            if (await messageBtn.isVisible()) {
-                console.log('ℹ️ Already connected (Message button visible). Marking as successful.');
-                return { ["success"]: true };
-            }
             return { ["success"]: false, ["error"]: 'CONNECT_BUTTON_NOT_FOUND' };
         }
 
@@ -106,7 +106,6 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
             if (await sendWithoutNote.isVisible()) {
                 await sendWithoutNote.click();
             } else {
-                // Try primary Send button if it's already visible (some UI variants)
                 const sendBtn = page.getByRole(SELECTORS.profile.send.role, { 
                     name: SELECTORS.profile.send.name,
                     exact: SELECTORS.profile.send.exact
