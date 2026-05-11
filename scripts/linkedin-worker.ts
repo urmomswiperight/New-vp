@@ -166,17 +166,23 @@ async function handleOutreach(page: Page, context: BrowserContext) {
     await page.goto(profileUrl.split('?')[0].replace(/\/$/, ''), { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForTimeout(5000);
 
-    const result = await sendConnectionRequest(page, message);
+    // Updated handleOutreach to support CONNECTION_ONLY mode
+    const isConnectionOnly = process.env.MODE === 'CONNECTION_ONLY';
+    
+    // ... rest of logic ...
+    
+    // In handleOutreach:
+    const result = await sendConnectionRequest(page, isConnectionOnly ? undefined : message);
     if (result.success) {
-        console.log('✅ Outreach successful!');
+        console.log(isConnectionOnly ? '✅ Connection request sent successfully!' : '✅ Outreach successful!');
         if (leadId) {
             await prisma.lead.update({
                 where: { id: leadId },
-                data: { status: 'Contacted (LinkedIn)', lastMessage: message, updatedAt: new Date() }
+                data: { status: 'Contacted (LinkedIn)', updatedAt: new Date() }
             });
             console.log(`📊 Updated database status for lead: ${leadId} to 'Contacted (LinkedIn)'`);
         }
-    } else {
+    }
         // Take screenshot on failure for debugging
         const screenshotPath = `failure-${Date.now()}.png`;
         await page.screenshot({ path: screenshotPath, fullPage: true });
