@@ -113,23 +113,35 @@ async function run() {
 }
 
 async function handleOutreach(page: Page, context: BrowserContext) {
-    const profileUrl = process.env.PROFILE_URL || process.env.profileUrl;
-    const message = process.env.MESSAGE || process.env.message;
-    const leadId = process.env.LEAD_ID || process.env.leadId;
+    // 1. Super-resilient input lookup (case-insensitive + aliases)
+    const findEnv = (keys: string[]) => {
+        for (const key of keys) {
+            // Try exact match
+            if (process.env[key]) return process.env[key];
+            // Try case-insensitive match
+            const foundKey = Object.keys(process.env).find(k => k.toLowerCase() === key.toLowerCase());
+            if (foundKey && process.env[foundKey]) return process.env[foundKey];
+        }
+        return null;
+    };
 
-    console.log('📋 Debug Outreach Inputs:');
-    console.log(`- profileUrl: ${profileUrl ? 'PRESENT (' + profileUrl.substring(0, 15) + '...)' : 'MISSING'}`);
-    console.log(`- message: ${message ? 'PRESENT (' + message.substring(0, 15) + '...)' : 'MISSING'}`);
-    console.log(`- leadId: ${leadId || 'MISSING'}`);
+    const profileUrl = findEnv(['PROFILE_URL', 'profileUrl', 'linkedinUrl', 'url', 'target_url']);
+    const message = findEnv(['MESSAGE', 'message', 'text', 'body', 'content']);
+    const leadId = findEnv(['LEAD_ID', 'leadId', 'id']);
+
+    console.log('📋 Resilient Input Debug:');
+    console.log(`- Resolved profileUrl: ${profileUrl ? '✅ FOUND' : '❌ MISSING'}`);
+    console.log(`- Resolved message: ${message ? '✅ FOUND' : '❌ MISSING'}`);
+    console.log(`- Resolved leadId: ${leadId ? '✅ FOUND' : '❌ MISSING'}`);
 
     if (!profileUrl || !message) {
-        console.error('❌ Error: profileUrl or message is missing from environment variables.');
-        // List all env keys to see if they are prefixed or named differently
-        console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('SESSION') && !k.includes('PASS') && !k.includes('URL')));
+        console.error('❌ FATAL: Required inputs missing.');
+        console.log('--- ALL VISIBLE ENVIRONMENT KEYS (CASE-INSENSITIVE) ---');
+        console.log(Object.keys(process.env).filter(k => k.length < 30).sort());
         throw new Error('Missing profileUrl or message');
     }
 
-    console.log(`Navigating to profile: ${profileUrl}`);
+    console.log(`🚀 Starting outreach to: ${profileUrl.substring(0, 30)}...`);
     await page.goto(profileUrl.split('?')[0].replace(/\/$/, ''), { waitUntil: 'domcontentloaded', timeout: 90000 });
     await page.waitForTimeout(5000);
 
