@@ -1,0 +1,58 @@
+{
+  "name": "Phase 10: Message-on-Accept Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linkedin-accepted-webhook",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\"ref\": \"main\", \"inputs\": {\"mode\": \"REPLY\", \"threadUrl\": $json.body.threadUrl, \"message\": $json.body.personalizedMessage}}) }}",
+        "options": {}
+      },
+      "id": "trigger-github",
+      "name": "GitHub: Trigger Reply Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [620, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tuODxMSOvvKCM8br",
+          "name": "GitHub Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "GitHub: Trigger Reply Worker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "phase-10-message-handler"
+}

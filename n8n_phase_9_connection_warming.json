@@ -1,0 +1,101 @@
+{
+  "name": "Phase 9: Connection Warming (Connection-Only)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "daysInterval": 1,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-9am",
+      "name": "9AM: Start Connection Run",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "Lead",
+        "limit": 50,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "New"
+            },
+            {
+              "keyName": "linkedinUrl",
+              "condition": "neq",
+              "keyValue": ""
+            }
+          ]
+        }
+      },
+      "id": "fetch-leads",
+      "name": "Supabase: Fetch New Leads",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [250, 200]
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "id": "loop-leads",
+      "name": "Loop Over Leads",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [500, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\"ref\": \"main\", \"inputs\": {\"mode\": \"CONNECTION_ONLY\", \"profileUrl\": $json.linkedinUrl, \"leadId\": $json.id}}) }}",
+        "options": {}
+      },
+      "id": "trigger-github",
+      "name": "GitHub: Trigger Connection Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "tuODxMSOvvKCM8br",
+          "name": "GitHub Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "wait-5m",
+      "name": "Wait 5m (Stealth Jitter)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1050, 200]
+    }
+  ],
+  "connections": {
+    "9AM: Start Connection Run": { "main": [[{ "node": "Supabase: Fetch New Leads", "type": "main", "index": 0 }]] },
+    "Supabase: Fetch New Leads": { "main": [[{ "node": "Loop Over Leads", "type": "main", "index": 0 }]] },
+    "Loop Over Leads": { "main": [[], [{ "node": "GitHub: Trigger Connection Worker", "type": "main", "index": 0 }]] },
+    "GitHub: Trigger Connection Worker": { "main": [[{ "node": "Wait 5m (Stealth Jitter)", "type": "main", "index": 0 }]] },
+    "Wait 5m (Stealth Jitter)": { "main": [[{ "node": "Loop Over Leads", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

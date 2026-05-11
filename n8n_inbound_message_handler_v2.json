@@ -1,0 +1,67 @@
+{
+  "name": "Phase 10: Message-on-Accept Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linkedin-accepted-webhook",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/urmomswiperight/New-vp/actions/workflows/linkedin-worker.yml/dispatches",
+        "authentication": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GITHUB_TOKEN"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\"ref\": \"main\", \"inputs\": {\"mode\": \"REPLY\", \"threadUrl\": $json.body.threadUrl, \"message\": $json.body.personalizedMessage}}) }}",
+        "options": {}
+      },
+      "id": "2",
+      "name": "GitHub Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "GitHub Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "trigger": "n8n-nodes-base.webhook",
+  "versionId": "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1"
+}
