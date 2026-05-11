@@ -177,6 +177,11 @@ async function handleOutreach(page: Page, context: BrowserContext) {
             console.log(`📊 Updated database status for lead: ${leadId} to 'Contacted (LinkedIn)'`);
         }
     } else {
+        // Take screenshot on failure for debugging
+        const screenshotPath = `failure-${Date.now()}.png`;
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(`📸 Failure screenshot saved to: ${screenshotPath}`);
+        
         throw new Error(`Outreach failed: ${result.error}`);
     }
 }

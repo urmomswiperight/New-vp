@@ -53,3 +53,10 @@ jobs:
           N8N_INBOUND_WEBHOOK_URL: ${{ secrets.N8N_INBOUND_WEBHOOK_URL }}
           BYPASS_SESSION_HEALTH: 'false'
         run: npx tsx scripts/linkedin-worker.ts
+
+      - name: Upload Failure Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots
+          path: failure-*.png
