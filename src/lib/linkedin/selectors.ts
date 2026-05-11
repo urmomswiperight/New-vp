@@ -13,6 +13,8 @@ export const SELECTORS = {
     // Primary buttons
     connect: { role: 'button' as const, name: /^Connect$/i, exact: true },
     message: { role: 'button' as const, name: /^Message$/i, exact: true },
+    pending: { role: 'button' as const, name: /^Pending/i },
+    follow: { role: 'button' as const, name: /^Follow$/i, exact: true },
     
     // Dropdown / Overflow menu
     more: { role: 'button' as const, name: /More actions/i },

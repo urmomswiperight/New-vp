@@ -7,6 +7,15 @@ import { SELECTORS } from './selectors';
  */
 export async function sendConnectionRequest(page: Page, note?: string): Promise<{ success: boolean; error?: string }> {
     try {
+        console.log('🔍 Checking for Connection status...');
+
+        // 0. Check if already Pending
+        const pendingBtn = page.getByRole(SELECTORS.profile.pending.role, { name: SELECTORS.profile.pending.name });
+        if (await pendingBtn.isVisible()) {
+            console.log('ℹ️ Connection already pending. Marking as successful.');
+            return { ["success"]: true };
+        }
+
         // 1. Try primary Connect button
         let connectBtn = page.getByRole(SELECTORS.profile.connect.role, { 
             name: SELECTORS.profile.connect.name, 
@@ -15,6 +24,7 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
         
         if (!(await connectBtn.isVisible())) {
             // 2. If not visible, check "More actions" dropdown
+            console.log('⚠️ Connect button not primary. Checking "More" menu...');
             const moreBtn = page.getByRole(SELECTORS.profile.more.role, { 
                 name: SELECTORS.profile.more.name 
             });
@@ -32,14 +42,25 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
         }
 
         if (!(await connectBtn.isVisible())) {
-            return { success: false, error: 'CONNECT_BUTTON_NOT_FOUND' };
+            // Check if already connected
+            const messageBtn = page.getByRole(SELECTORS.profile.message.role, { 
+                name: SELECTORS.profile.message.name,
+                exact: SELECTORS.profile.message.exact
+            });
+            if (await messageBtn.isVisible()) {
+                console.log('ℹ️ Already connected (Message button visible). Marking as successful.');
+                return { ["success"]: true };
+            }
+            return { ["success"]: false, ["error"]: 'CONNECT_BUTTON_NOT_FOUND' };
         }
 
+        console.log('👆 Clicking Connect button...');
         await connectBtn.click();
         await page.waitForTimeout(1000 + Math.random() * 500);
 
         // 3. Handle "Add a note" or "Send without a note"
         if (note) {
+            console.log('📝 Adding personalized note...');
             const addNoteBtn = page.getByRole(SELECTORS.profile.addNote.role, { 
                 name: SELECTORS.profile.addNote.name 
             });
@@ -61,17 +82,18 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
                 });
                 await sendBtn.click();
             } else {
-                // Fallback to sending without note if add note button is missing
+                console.log('⚠️ Could not find "Add a note" button. Sending without note...');
                 const sendWithoutNote = page.getByRole(SELECTORS.profile.sendWithoutNote.role, { 
                     name: SELECTORS.profile.sendWithoutNote.name 
                 });
                 if (await sendWithoutNote.isVisible()) {
                     await sendWithoutNote.click();
                 } else {
-                    return { success: false, error: 'COULD_NOT_ADD_NOTE_OR_SEND' };
+                    return { ["success"]: false, ["error"]: 'COULD_NOT_ADD_NOTE_OR_SEND' };
                 }
             }
         } else {
+            console.log('⏩ Sending without note...');
             const sendWithoutNote = page.getByRole(SELECTORS.profile.sendWithoutNote.role, { 
                 name: SELECTORS.profile.sendWithoutNote.name 
             });
@@ -86,14 +108,16 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
                 if (await sendBtn.isVisible()) {
                     await sendBtn.click();
                 } else {
-                    return { success: false, error: 'COULD_NOT_SEND_WITHOUT_NOTE' };
+                    return { ["success"]: false, ["error"]: 'COULD_NOT_SEND_WITHOUT_NOTE' };
                 }
             }
         }
 
-        return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+        await page.waitForTimeout(2000);
+        console.log('✅ Connection request sent successfully.');
+        return { ["success"]: true };
+    } catch (e: unknown) {
+        return { ["success"]: false, ["error"]: (e as Error).message || String(e) };
     }
 }
 
@@ -108,7 +132,7 @@ export async function sendMessage(page: Page, message: string): Promise<{ succes
         });
         
         if (!(await messageBtn.isVisible())) {
-            return { success: false, error: 'MESSAGE_BUTTON_NOT_FOUND' };
+            return { ["success"]: false, ["error"]: 'MESSAGE_BUTTON_NOT_FOUND' };
         }
         
         await messageBtn.click();
@@ -119,7 +143,7 @@ export async function sendMessage(page: Page, message: string): Promise<{ succes
         });
         
         if (!(await textArea.isVisible())) {
-            return { success: false, error: 'MESSAGE_TEXTBOX_NOT_FOUND' };
+            return { ["success"]: false, ["error"]: 'MESSAGE_TEXTBOX_NOT_FOUND' };
         }
         
         await typeHumanLike(page, textArea, message);
@@ -131,9 +155,9 @@ export async function sendMessage(page: Page, message: string): Promise<{ succes
         });
         await sendBtn.click();
         
-        return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
+        return { ["success"]: true };
+    } catch (e: unknown) {
+        return { ["success"]: false, ["error"]: (e as Error).message || String(e) };
     }
 }
 
