@@ -150,13 +150,13 @@ async function handleOutreach(page: Page, context: BrowserContext) {
 
     if (!profileUrl || !message) {
         console.error('❌ FATAL: Required inputs missing.');
-        console.log('--- ALL KEYS IN PROCESS.ENV ---');
+        console.log('--- ALL ENVIRONMENT KEYS RECEIVED BY RUNNER ---');
         console.log(JSON.stringify(Object.keys(process.env).sort(), null, 2));
         
-        console.log('--- KEY VALUES (MASKED) ---');
+        console.log('--- RAW ENV VALUES FOR POTENTIAL MATCHES ---');
         for (const [k, v] of Object.entries(process.env)) {
-             if (v && v.length > 0 && !k.includes('SESSION') && !k.includes('PASS') && !k.includes('DATABASE')) {
-                console.log(`${k}: ${v.substring(0, 20)}...`);
+             if (k.toLowerCase().includes('url') || k.toLowerCase().includes('message') || k.toLowerCase().includes('lead')) {
+                console.log(`${k}: ${v ? v.substring(0, 50) : 'NULL'}`);
             }
         }
         throw new Error('Missing profileUrl or message');
