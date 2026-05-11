@@ -113,14 +113,28 @@ async function run() {
 }
 
 async function handleOutreach(page: Page, context: BrowserContext) {
-    // 1. Super-resilient input lookup (case-insensitive + aliases)
+    // 1. Super-resilient input lookup (case-insensitive + value scanning)
     const findEnv = (keys: string[]) => {
+        // First try keys
         for (const key of keys) {
-            // Try exact match
-            if (process.env[key]) return process.env[key];
-            // Try case-insensitive match
+            const val = process.env[key];
+            if (val && val.trim() !== '' && val !== 'undefined' && val !== 'null') return val;
+            
             const foundKey = Object.keys(process.env).find(k => k.toLowerCase() === key.toLowerCase());
-            if (foundKey && process.env[foundKey]) return process.env[foundKey];
+            if (foundKey) {
+                const foundVal = process.env[foundKey];
+                if (foundVal && foundVal.trim() !== '' && foundVal !== 'undefined' && foundVal !== 'null') return foundVal;
+            }
+        }
+
+        // Second: Scan values for things that LOOK like what we want
+        for (const [k, v] of Object.entries(process.env)) {
+            if (!v) continue;
+            // Does it look like a LinkedIn URL?
+            if (k.length < 40 && v.includes('linkedin.com/in/')) {
+                console.log(`💡 Auto-detected profileUrl in unexpected key: ${k}`);
+                return v;
+            }
         }
         return null;
     };
@@ -130,14 +144,18 @@ async function handleOutreach(page: Page, context: BrowserContext) {
     const leadId = findEnv(['LEAD_ID', 'leadId', 'id']);
 
     console.log('📋 Resilient Input Debug:');
-    console.log(`- Resolved profileUrl: ${profileUrl ? '✅ FOUND' : '❌ MISSING'}`);
-    console.log(`- Resolved message: ${message ? '✅ FOUND' : '❌ MISSING'}`);
+    console.log(`- Resolved profileUrl: ${profileUrl ? '✅ FOUND (' + profileUrl.substring(0, 20) + '...)' : '❌ MISSING'}`);
+    console.log(`- Resolved message: ${message ? '✅ FOUND (' + message.substring(0, 20) + '...)' : '❌ MISSING'}`);
     console.log(`- Resolved leadId: ${leadId ? '✅ FOUND' : '❌ MISSING'}`);
 
     if (!profileUrl || !message) {
         console.error('❌ FATAL: Required inputs missing.');
-        console.log('--- ALL VISIBLE ENVIRONMENT KEYS (CASE-INSENSITIVE) ---');
-        console.log(Object.keys(process.env).filter(k => k.length < 30).sort());
+        console.log('--- NON-EMPTY ENV VALUES (MASKED) ---');
+        for (const [k, v] of Object.entries(process.env)) {
+            if (v && v.length > 0 && k.length < 30 && !k.includes('SESSION') && !k.includes('PASS')) {
+                console.log(`${k}: ${v.substring(0, 10)}...`);
+            }
+        }
         throw new Error('Missing profileUrl or message');
     }
 
