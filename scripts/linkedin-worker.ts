@@ -113,20 +113,20 @@ async function run() {
 }
 
 async function handleOutreach(page: Page, context: BrowserContext) {
-    const profileUrl = process.env.PROFILE_URL;
-    const message = process.env.MESSAGE;
-    const leadId = process.env.LEAD_ID;
+    const profileUrl = process.env.PROFILE_URL || process.env.profileUrl;
+    const message = process.env.MESSAGE || process.env.message;
+    const leadId = process.env.LEAD_ID || process.env.leadId;
 
     console.log('📋 Debug Outreach Inputs:');
-    console.log(`- PROFILE_URL: ${profileUrl ? 'PRESENT (' + profileUrl.substring(0, 15) + '...)' : 'MISSING'}`);
-    console.log(`- MESSAGE: ${message ? 'PRESENT (' + message.substring(0, 15) + '...)' : 'MISSING'}`);
-    console.log(`- LEAD_ID: ${leadId || 'MISSING'}`);
+    console.log(`- profileUrl: ${profileUrl ? 'PRESENT (' + profileUrl.substring(0, 15) + '...)' : 'MISSING'}`);
+    console.log(`- message: ${message ? 'PRESENT (' + message.substring(0, 15) + '...)' : 'MISSING'}`);
+    console.log(`- leadId: ${leadId || 'MISSING'}`);
 
     if (!profileUrl || !message) {
-        console.error('❌ Error: PROFILE_URL or MESSAGE is missing from environment variables.');
+        console.error('❌ Error: profileUrl or message is missing from environment variables.');
         // List all env keys to see if they are prefixed or named differently
         console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('SESSION') && !k.includes('PASS') && !k.includes('URL')));
-        throw new Error('Missing PROFILE_URL or MESSAGE');
+        throw new Error('Missing profileUrl or message');
     }
 
     console.log(`Navigating to profile: ${profileUrl}`);
