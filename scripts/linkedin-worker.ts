@@ -117,7 +117,17 @@ async function handleOutreach(page: Page, context: BrowserContext) {
     const message = process.env.MESSAGE;
     const leadId = process.env.LEAD_ID;
 
-    if (!profileUrl || !message) throw new Error('Missing PROFILE_URL or MESSAGE');
+    console.log('📋 Debug Outreach Inputs:');
+    console.log(`- PROFILE_URL: ${profileUrl ? 'PRESENT (' + profileUrl.substring(0, 15) + '...)' : 'MISSING'}`);
+    console.log(`- MESSAGE: ${message ? 'PRESENT (' + message.substring(0, 15) + '...)' : 'MISSING'}`);
+    console.log(`- LEAD_ID: ${leadId || 'MISSING'}`);
+
+    if (!profileUrl || !message) {
+        console.error('❌ Error: PROFILE_URL or MESSAGE is missing from environment variables.');
+        // List all env keys to see if they are prefixed or named differently
+        console.log('Available Env Keys:', Object.keys(process.env).filter(k => !k.includes('SESSION') && !k.includes('PASS') && !k.includes('URL')));
+        throw new Error('Missing PROFILE_URL or MESSAGE');
+    }
 
     console.log(`Navigating to profile: ${profileUrl}`);
     await page.goto(profileUrl.split('?')[0].replace(/\/$/, ''), { waitUntil: 'domcontentloaded', timeout: 90000 });
