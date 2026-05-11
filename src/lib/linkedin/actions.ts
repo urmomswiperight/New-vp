@@ -23,15 +23,21 @@ export async function sendConnectionRequest(page: Page, note?: string): Promise<
         });
         
         if (!(await connectBtn.isVisible())) {
-            // 2. If not visible, check "More actions" dropdown
+            // Check if we should Follow first
+            const followBtn = page.getByRole(SELECTORS.profile.follow.role, { name: SELECTORS.profile.follow.name });
+            if (await followBtn.isVisible()) {
+                console.log('ℹ️ Found Follow button. Skipping connect request.');
+                return { ["success"]: true };
+            }
+
+            // 2. If not visible, check "More" menu
             console.log('⚠️ Connect button not primary. Checking "More" menu...');
-            const moreBtn = page.getByRole(SELECTORS.profile.more.role, { 
-                name: SELECTORS.profile.more.name 
-            });
+            const moreBtn = page.getByRole(SELECTORS.profile.more.role, { name: SELECTORS.profile.more.name })
+                         .or(page.getByRole(SELECTORS.profile.moreActions.role, { name: SELECTORS.profile.moreActions.name }));
             
             if (await moreBtn.isVisible()) {
                 await moreBtn.click();
-                await page.waitForTimeout(500 + Math.random() * 500);
+                await page.waitForTimeout(1000 + Math.random() * 500);
                 
                 // Redefine connectBtn within the dropdown
                 connectBtn = page.getByRole(SELECTORS.profile.connect.role, { 
